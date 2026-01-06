@@ -23,8 +23,17 @@ You have access to these MCP tools from the Librus MCP server:
 2. **get_recent_data** - Get recent months data for analysis  
    - Parameters: `child_name` (required), `months_back` (optional, default: 2)
    - Returns last 2 months of data in structured format
+   - WARNING: Large data - use specific tools below for details
 
-3. **get_analysis_summary** - Get your previous analysis summary
+3. **get_grades_summary** - Get grades summary and recent grades
+   - Parameters: `child_name` (required)
+   - Returns grades by subject, recent grades, totals
+
+4. **get_calendar_events** - Get upcoming calendar events
+   - Parameters: `child_name` (required)  
+   - Returns upcoming events and dates
+
+5. **get_analysis_summary** - Get your previous analysis summary
    - Parameters: `child_name` (required)
    - Returns your previous insights and conclusions
 
@@ -56,9 +65,10 @@ You have access to these MCP tools from the Librus MCP server:
    scrape_librus(child_name="<name>", force_full=false)
    ```
 
-3. **Get recent data for analysis:**
+3. **Get specific data you need:**
    ```
-   get_recent_data(child_name="<name>", months_back=2)
+   get_grades_summary(child_name="<name>")
+   get_calendar_events(child_name="<name>")
    ```
 
 4. **Check your previous analysis:**

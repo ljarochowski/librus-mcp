@@ -329,6 +329,34 @@ async def list_tools() -> list[Tool]:
             }
         ),
         Tool(
+            name="get_grades_summary",
+            description="Get grades summary for a child (recent grades, averages, trends)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "child_name": {
+                        "type": "string",
+                        "description": "Child name or alias"
+                    }
+                },
+                "required": ["child_name"]
+            }
+        ),
+        Tool(
+            name="get_calendar_events",
+            description="Get upcoming calendar events for a child",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "child_name": {
+                        "type": "string",
+                        "description": "Child name or alias"
+                    }
+                },
+                "required": ["child_name"]
+            }
+        ),
+        Tool(
             name="manual_login",
             description="Trigger manual login for a child when auto-login fails",
             inputSchema={
@@ -435,6 +463,78 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 return [TextContent(type="text", text=f"No pending tasks for {child_name}")]
         except Exception as e:
             return [TextContent(type="text", text=f"Error loading tasks: {str(e)}")]
+    
+    elif name == "get_grades_summary":
+        child_name = arguments["child_name"]
+        try:
+            data = get_recent_months_data(child_name, 2)
+            if not data:
+                return [TextContent(type="text", text=f"No recent data found for {child_name}")]
+            
+            # Extract grades from recent data
+            all_grades = []
+            for month_data in data.values():
+                if 'data' in month_data and 'rawData' in month_data['data']:
+                    grades = month_data['data']['rawData'].get('grades', [])
+                    all_grades.extend(grades)
+            
+            # Create summary
+            summary = {
+                "total_grades": len(all_grades),
+                "recent_grades": all_grades[-10:] if all_grades else [],  # Last 10 grades
+                "subjects": {}
+            }
+            
+            # Group by subject
+            for grade in all_grades:
+                subject = grade.get('subject', 'Unknown')
+                if subject not in summary["subjects"]:
+                    summary["subjects"][subject] = []
+                summary["subjects"][subject].append(grade)
+            
+            return [TextContent(type="text", text=json.dumps(summary, ensure_ascii=False, indent=2))]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error getting grades: {str(e)}")]
+    
+    elif name == "get_calendar_events":
+        child_name = arguments["child_name"]
+        try:
+            data = get_recent_months_data(child_name, 2)
+            if not data:
+                return [TextContent(type="text", text=f"No recent data found for {child_name}")]
+            
+            # Extract calendar events
+            all_events = []
+            for month_data in data.values():
+                if 'data' in month_data and 'rawData' in month_data['data']:
+                    events = month_data['data']['rawData'].get('calendar', [])
+                    all_events.extend(events)
+            
+            # Sort by date and get upcoming events
+            from datetime import datetime
+            now = datetime.now()
+            upcoming_events = []
+            
+            for event in all_events:
+                event_date_str = event.get('date', '')
+                if event_date_str:
+                    try:
+                        # Parse date and check if upcoming
+                        event_date = datetime.strptime(event_date_str, '%Y-%m-%d')
+                        if event_date >= now:
+                            upcoming_events.append(event)
+                    except:
+                        # If date parsing fails, include anyway
+                        upcoming_events.append(event)
+            
+            summary = {
+                "total_events": len(all_events),
+                "upcoming_events": sorted(upcoming_events, key=lambda x: x.get('date', ''))[:10]
+            }
+            
+            return [TextContent(type="text", text=json.dumps(summary, ensure_ascii=False, indent=2))]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error getting calendar: {str(e)}")]
     
     elif name == "manual_login":
         child_name = arguments["child_name"]
