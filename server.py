@@ -372,6 +372,36 @@ async def list_tools() -> list[Tool]:
             }
         ),
         Tool(
+            name="analyze_grade_trends",
+            description="Analyze grade trends and calculate averages for a child",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "child_name": {
+                        "type": "string",
+                        "description": "Child name or alias"
+                    }
+                },
+                "required": ["child_name"]
+            }
+        ),
+        Tool(
+            name="generate_family_report",
+            description="Generate comprehensive family report with all children",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "report_type": {
+                        "type": "string",
+                        "enum": ["weekly", "monthly"],
+                        "description": "Type of report to generate",
+                        "default": "weekly"
+                    }
+                },
+                "required": []
+            }
+        ),
+        Tool(
             name="get_grades_summary",
             description="Get grades summary for a child (recent grades, averages, trends)",
             inputSchema={
@@ -548,6 +578,184 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 return [TextContent(type="text", text=f"No pending tasks for {child_name}")]
         except Exception as e:
             return [TextContent(type="text", text=f"Error loading tasks: {str(e)}")]
+    
+    elif name == "analyze_grade_trends":
+        child_name = arguments["child_name"]
+        try:
+            data = get_recent_months_data(child_name, 2)
+            if not data:
+                return [TextContent(type="text", text=f"No recent data found for {child_name}")]
+            
+            # Extract grades from recent data
+            all_grades = []
+            for month_data in data.values():
+                if 'data' in month_data and 'rawData' in month_data['data']:
+                    grades = month_data['data']['rawData'].get('grades', [])
+                    all_grades.extend(grades)
+            
+            # Analyze trends by subject
+            subjects = {}
+            for grade in all_grades:
+                subject = grade.get('subject', 'Unknown')
+                if subject not in subjects:
+                    subjects[subject] = []
+                
+                # Convert grade to numeric (handle Polish grading system)
+                grade_str = grade.get('grade', '')
+                numeric_grade = None
+                if grade_str.isdigit():
+                    numeric_grade = int(grade_str)
+                elif '+' in grade_str:
+                    base = grade_str.replace('+', '')
+                    if base.isdigit():
+                        numeric_grade = int(base) + 0.5
+                elif '-' in grade_str:
+                    base = grade_str.replace('-', '')
+                    if base.isdigit():
+                        numeric_grade = int(base) - 0.5
+                
+                if numeric_grade:
+                    subjects[subject].append({
+                        'grade': numeric_grade,
+                        'original': grade_str,
+                        'date': grade.get('date', ''),
+                        'category': grade.get('category', ''),
+                        'weight': grade.get('weight', '')
+                    })
+            
+            # Calculate trends and averages
+            analysis = {}
+            for subject, grades in subjects.items():
+                if len(grades) < 2:
+                    continue
+                    
+                # Sort by date (if available)
+                sorted_grades = sorted(grades, key=lambda x: x['date'] or '1900-01-01')
+                
+                # Calculate average
+                avg = sum(g['grade'] for g in grades) / len(grades)
+                
+                # Calculate trend (last 3 vs first 3 grades)
+                recent = sorted_grades[-3:] if len(sorted_grades) >= 3 else sorted_grades
+                early = sorted_grades[:3] if len(sorted_grades) >= 3 else sorted_grades
+                
+                recent_avg = sum(g['grade'] for g in recent) / len(recent)
+                early_avg = sum(g['grade'] for g in early) / len(early)
+                trend = recent_avg - early_avg
+                
+                # Determine trend direction
+                if trend > 0.3:
+                    trend_desc = "IMPROVING"
+                elif trend < -0.3:
+                    trend_desc = "DECLINING"
+                else:
+                    trend_desc = "STABLE"
+                
+                analysis[subject] = {
+                    "total_grades": len(grades),
+                    "average": round(avg, 2),
+                    "trend_value": round(trend, 2),
+                    "trend_direction": trend_desc,
+                    "recent_grades": [g['original'] for g in sorted_grades[-5:]],
+                    "grade_sequence": " → ".join([g['original'] for g in sorted_grades])
+                }
+            
+            return [TextContent(type="text", text=json.dumps(analysis, ensure_ascii=False, indent=2))]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error analyzing trends: {str(e)}")]
+    
+    elif name == "generate_family_report":
+        report_type = arguments.get("report_type", "weekly")
+        try:
+            # Get all children
+            children = list_children()
+            
+            from datetime import datetime
+            report_date = datetime.now().strftime("%d.%m.%Y")
+            
+            report = f"# 📊 RAPORT RODZINNY - {report_date}\n\n"
+            
+            urgent_items = []
+            weekly_items = []
+            payments_items = []
+            shopping_items = []
+            
+            for child_name in children:
+                try:
+                    # Get data for each child
+                    homework_data = get_recent_months_data(child_name, 2)
+                    
+                    # Extract homework
+                    all_homework = []
+                    for month_data in homework_data.values() if homework_data else []:
+                        if 'data' in month_data and 'homework' in month_data['data']:
+                            all_homework.extend(month_data['data']['homework'])
+                    
+                    # Check for urgent homework (tomorrow)
+                    from datetime import datetime, timedelta
+                    tomorrow = datetime.now() + timedelta(days=1)
+                    
+                    for hw in all_homework:
+                        due_date_str = hw.get('dateDue', '')
+                        if due_date_str:
+                            try:
+                                due_date = datetime.strptime(due_date_str, '%Y-%m-%d')
+                                if due_date.date() == tomorrow.date():
+                                    urgent_items.append(f"**[{child_name.upper()}]** - 📝 ZADANIE JUTRO! {hw.get('subject', 'Unknown')} - {hw.get('title', 'sprawdź czy zrobione!')}")
+                            except:
+                                pass
+                    
+                    report += f"## 👦 {child_name.upper()}\n\n"
+                    report += f"### 🚨 PILNE ACTION POINTS\n"
+                    
+                    # Add homework analysis
+                    urgent_hw = [hw for hw in all_homework if hw.get('dateDue') == tomorrow.strftime('%Y-%m-%d')]
+                    if urgent_hw:
+                        for hw in urgent_hw:
+                            report += f"- 📝 **ZADANIE JUTRO:** {hw.get('subject')} - {hw.get('title')}\n"
+                    else:
+                        report += "- ✅ Brak pilnych zadań na jutro\n"
+                    
+                    report += f"\n### 📊 OSTATNIE OCENY\n"
+                    report += "*(Analiza trendów dostępna przez analyze_grade_trends)*\n\n"
+                    
+                    report += f"### 📅 NADCHODZĄCE WYDARZENIA\n"
+                    report += "*(Sprawdziany i wydarzenia na 14 dni)*\n\n"
+                    
+                    report += "---\n\n"
+                    
+                except Exception as e:
+                    report += f"## ❌ {child_name.upper()} - Błąd pobierania danych: {str(e)}\n\n"
+            
+            # Add family summary
+            report += "## 👨👩👦👦 WSPÓLNE DLA WSZYSTKICH\n\n"
+            
+            if urgent_items:
+                report += "### 🚨 PILNE NA DZIŚ/JUTRO\n"
+                for item in urgent_items:
+                    report += f"- {item}\n"
+                report += "\n"
+            
+            report += "### 💰 PŁATNOŚCI DO SPRAWDZENIA\n"
+            report += "- Obiady szkolne\n"
+            report += "- Składki klasowe\n"
+            report += "- Wycieczki\n\n"
+            
+            report += "### 📋 ZAKUPY WEEKEND\n"
+            report += "- Materiały szkolne\n"
+            report += "- Stroje na wydarzenia\n\n"
+            
+            report += "### 📄 PODSUMOWANIE NA LODÓWKĘ\n"
+            if urgent_items:
+                report += "**PILNE:**\n"
+                for item in urgent_items[:3]:  # Max 3 items for fridge
+                    report += f"• {item.replace('**', '').replace('[', '').replace(']', '')}\n"
+            else:
+                report += "• Wszystko pod kontrolą! ✅\n"
+            
+            return [TextContent(type="text", text=report)]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error generating family report: {str(e)}")]
     
     elif name == "get_homework_summary":
         child_name = arguments["child_name"]

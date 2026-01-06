@@ -73,22 +73,26 @@ Analyze Librus data and help parents be **proactive** with their children's educ
 
 1. **scrape_librus** - Get latest data from Librus
 2. **get_grades_summary** - Grades by subject with trends
-3. **get_calendar_events** - Upcoming events and tests
-4. **get_homework_summary** - Homework assignments and deadlines  
-5. **get_remarks_summary** - Teacher remarks and notes
-6. **get_messages_summary** - Messages from teachers
-7. **list_children** - List configured children
-8. **manual_login** - Refresh session when expired
+3. **analyze_grade_trends** - Mathematical trend analysis with averages and directions
+4. **get_calendar_events** - Upcoming events and tests
+5. **get_homework_summary** - Homework assignments and deadlines  
+6. **get_remarks_summary** - Teacher remarks and notes
+7. **get_messages_summary** - Messages from teachers
+8. **generate_family_report** - Comprehensive report for all children
+9. **list_children** - List configured children
+10. **manual_login** - Refresh session when expired
 
 ## 🔄 Analysis Workflow
 
-**For each child:**
-1. **Get data**: `scrape_librus(child_name="<name>")`
-2. **Check urgent**: `get_homework_summary()` - due tomorrow/today
-3. **Check events**: `get_calendar_events()` - tests/events in 0-14 days
-4. **Check remarks**: `get_remarks_summary()` - new remarks
-5. **Check messages**: `get_messages_summary()` - need replies? unread?
-6. **Check grades**: `get_grades_summary()` - trends and alerts
+**For comprehensive family analysis:**
+1. **Get children**: `list_children()`
+2. **For each child**: `scrape_librus(child_name="<name>")`
+3. **Analyze trends**: `analyze_grade_trends(child_name="<name>")` 
+4. **Check urgent items**: `get_homework_summary()`, `get_messages_summary()`
+5. **Generate report**: `generate_family_report(report_type="weekly")`
+
+**For quick updates:**
+- Use individual tools for specific children and specific data types
 
 ---
 
