@@ -421,7 +421,7 @@ async def list_tools() -> list[Tool]:
                     "filename": {
                         "type": "string",
                         "description": "Filename for PDF (will be saved to current directory)",
-                        "default": "raport_rodzinny.pdf"
+                        "default": "family_report.pdf"
                     }
                 },
                 "required": []
