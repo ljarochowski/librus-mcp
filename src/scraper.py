@@ -89,7 +89,7 @@ async def scrape_librus_data(page, last_scrape: Optional[str], is_first: bool) -
     })
     
     # Add homework scraped via Python (POST form)
-    homework = await scrape_homework(page, last_scrape)
+    homework = await scrape_homework(page, None if is_first else last_scrape)
     result['homework'] = homework
     result['stats']['homework'] = len(homework)
     
