@@ -106,60 +106,76 @@ async def scrape_librus(child_name: str, force_full: bool = False) -> Dict:
     Returns:
         Dict with markdown, stats, mode, and child_name
     """
-    state = load_state(child_name)
-    last_scrape = state.get("last_scrape_iso")
-    is_first = last_scrape is None or force_full
-    
-    mode = "FULL" if is_first else f"DELTA since {last_scrape}"
-    
-    print(f"\n{Colors.BOLD}{'='*60}{Colors.ENDC}")
-    print(f"{Colors.BOLD}{Colors.HEADER}{child_name} - {mode}{Colors.ENDC}")
-    print(f"{Colors.BOLD}{'='*60}{Colors.ENDC}\n")
-    
-    # Use headless mode if cookies exist
-    context_dir = get_context_dir(child_name)
-    cookies_file = context_dir / "cookies.json"
-    headless = cookies_file.exists()
-    
-    async with async_playwright() as p:
-        print(f"{Colors.BLUE}Launching browser...{Colors.ENDC}")
-        browser = await p.webkit.launch(headless=headless)
-        context = await get_browser_context(child_name, browser)
-        page = await context.new_page()
+    try:
+        state = load_state(child_name)
+        last_scrape = state.get("last_scrape_iso")
+        is_first = last_scrape is None or force_full
         
-        print(f"{Colors.BLUE}Navigating to Librus...{Colors.ENDC}")
-        await page.goto('https://synergia.librus.pl/rodzic/index', timeout=config.page_timeout_ms)
-        print(f"{Colors.GREEN}Page loaded{Colors.ENDC}")
+        mode = "FULL" if is_first else f"DELTA since {last_scrape}"
         
-        print(f"{Colors.BLUE}Running scraper...{Colors.ENDC}")
-        result = await scrape_librus_data(page, last_scrape, is_first)
-        print(f"{Colors.GREEN}Scraping complete{Colors.ENDC}")
+        print(f"\n{Colors.BOLD}{'='*60}{Colors.ENDC}")
+        print(f"{Colors.BOLD}{Colors.HEADER}{child_name} - {mode}{Colors.ENDC}")
+        print(f"{Colors.BOLD}{'='*60}{Colors.ENDC}\n")
         
-        # Update state
-        now = datetime.now()
-        state["last_scrape_iso"] = now.strftime("%Y-%m-%d %H:%M:%S")
-        save_state(child_name, state)
+        # Use headless mode if cookies exist
+        context_dir = get_context_dir(child_name)
+        cookies_file = context_dir / "cookies.json"
+        headless = cookies_file.exists()
         
-        # Save data in monthly pickle format
-        save_monthly_data(child_name, now.year, now.month, {
-            "timestamp": now.isoformat(),
-            "data": result,
-            "mode": "delta" if not force_full else "full"
-        })
+        async with async_playwright() as p:
+            print(f"{Colors.BLUE}Launching browser...{Colors.ENDC}")
+            browser = await p.webkit.launch(headless=headless)
+            context = await get_browser_context(child_name, browser)
+            page = await context.new_page()
+            
+            print(f"{Colors.BLUE}Navigating to Librus...{Colors.ENDC}")
+            await page.goto('https://synergia.librus.pl/rodzic/index', timeout=config.page_timeout_ms)
+            print(f"{Colors.GREEN}Page loaded{Colors.ENDC}")
+            
+            print(f"{Colors.BLUE}Running scraper...{Colors.ENDC}")
+            result = await scrape_librus_data(page, last_scrape, is_first)
+            print(f"{Colors.GREEN}Scraping complete{Colors.ENDC}")
+            
+            # Update state
+            now = datetime.now()
+            state["last_scrape_iso"] = now.strftime("%Y-%m-%d %H:%M:%S")
+            save_state(child_name, state)
+            
+            # Save data in monthly pickle format
+            save_monthly_data(child_name, now.year, now.month, {
+                "timestamp": now.isoformat(),
+                "data": result,
+                "mode": "delta" if not force_full else "full"
+            })
+            
+            # Save results (backward compatibility)
+            save_scrape_result(child_name, result["markdown"])
+            await update_memory(child_name, result.get("rawData", {}))
+            
+            await context.close()
+            await browser.close()
+            
+            return {
+                "markdown": result["markdown"],
+                "stats": result["stats"],
+                "mode": mode,
+                "child_name": resolve_child_name(child_name)
+            }
+            
+    except Exception as e:
+        error_msg = str(e)
         
-        # Save results (backward compatibility)
-        save_scrape_result(child_name, result["markdown"])
-        await update_memory(child_name, result.get("rawData", {}))
-        
-        await context.close()
-        await browser.close()
-        
-        return {
-            "markdown": result["markdown"],
-            "stats": result["stats"],
-            "mode": mode,
-            "child_name": resolve_child_name(child_name)
-        }
+        # Check if it's a login/timeout issue
+        if "Timeout" in error_msg or "timeout" in error_msg:
+            # Remove stale cookies
+            context_dir = get_context_dir(child_name)
+            cookies_file = context_dir / "cookies.json"
+            if cookies_file.exists():
+                cookies_file.unlink()
+                
+            raise Exception(f"Login session expired for {child_name}. Use manual_login tool to refresh cookies.")
+        else:
+            raise e
 
 
 # ============================================================================
@@ -313,6 +329,20 @@ async def list_tools() -> list[Tool]:
             }
         ),
         Tool(
+            name="manual_login",
+            description="Trigger manual login for a child when auto-login fails",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "child_name": {
+                        "type": "string",
+                        "description": "Child name or alias"
+                    }
+                },
+                "required": ["child_name"]
+            }
+        ),
+        Tool(
             name="list_children",
             description="List all configured children with their last scan dates",
             inputSchema={
@@ -405,6 +435,21 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 return [TextContent(type="text", text=f"No pending tasks for {child_name}")]
         except Exception as e:
             return [TextContent(type="text", text=f"Error loading tasks: {str(e)}")]
+    
+    elif name == "manual_login":
+        child_name = arguments["child_name"]
+        try:
+            # Remove old cookies to force manual login
+            context_dir = get_context_dir(child_name)
+            cookies_file = context_dir / "cookies.json"
+            if cookies_file.exists():
+                cookies_file.unlink()
+            
+            # Trigger manual login by doing a scrape
+            result = await scrape_librus(child_name, force_full=True)
+            return [TextContent(type="text", text=f"Manual login completed for {child_name}. Fresh cookies saved.")]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Manual login failed for {child_name}: {str(e)}")]
     
     elif name == "scrape_librus":
         child_name = arguments["child_name"]
