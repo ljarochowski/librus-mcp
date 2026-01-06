@@ -8,19 +8,23 @@ venv/
 env/
 ENV/
 
-# Credentials & sensitive data
-credentials.json
+# Configuration (contains credentials)
+config.yaml
+
+# Other sensitive data
 .env
 *.secret
 
 # Librus data (contains children's personal info)
 .librus_scraper/
 
-# Backup files
+# Old/backup files
 *.bak
 *.bak*
 *.backup*
 *.before_*
+*.old
+librus_mcp_server.py
 
 # IDE
 .vscode/
@@ -33,6 +37,7 @@ credentials.json
 .DS_Store
 Thumbs.db
 
-# Test files
-test_*.py
+# Test artifacts
+.pytest_cache/
 *.patch
+/tmp/

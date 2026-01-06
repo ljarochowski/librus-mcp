@@ -1,0 +1,28 @@
+# Librus MCP Server Configuration
+
+# Browser settings
+browser:
+  login_timeout_ms: 120000
+  page_timeout_ms: 30000
+  headless_after_login: true
+
+# Scraping limits
+scraping:
+  max_messages: 200
+  max_announcements: 150
+  fetch_delay_ms: 150
+  calendar_months_ahead: 2
+
+# Storage paths (relative to user home)
+storage:
+  data_dir: ".librus_scraper"
+
+# Console output
+console:
+  colors_enabled: true
+
+# Children configuration
+children:
+  - name: "Jakub"
+    aliases: ["Kuba"]
+
