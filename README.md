@@ -58,8 +58,8 @@ scraping:
 
 # Children credentials
 children:
-  - name: "Jakub"
-    aliases: ["Kuba"]
+  - name: "John"
+    aliases: ["Johnny"]
     login: "your_librus_login"
     password: "your_librus_password"
 ```
@@ -95,7 +95,7 @@ import asyncio
 from server import scrape_librus
 
 async def main():
-    result = await scrape_librus('Jakub', force_full=True)
+    result = await scrape_librus('John', force_full=True)
     print(f'Scraped: {result[\"stats\"]}')
 
 asyncio.run(main())
