@@ -349,17 +349,17 @@ def get_scraper_js() -> str:
         // ====== 6. REMARKS/NOTES ======
         try {
             console.log("Fetching remarks...");
-            const doc = await fetchPage('https://synergia.librus.pl/przegladaj_uwagi/uczen');
+            const doc = await fetchPage('https://synergia.librus.pl/uwagi');
             const rows = doc.querySelectorAll("table.decorated tbody tr");
             
             for (const row of rows) {
                 const cells = row.querySelectorAll("td");
                 if (cells.length < 4) continue;
                 
-                const date = cells[0]?.textContent.trim() || "";
-                const teacher = cells[1]?.textContent.trim() || "";
-                const category = cells[2]?.textContent.trim() || "";
-                const content = cells[3]?.textContent.trim() || "";
+                const content = cells[0]?.textContent.trim() || "";
+                const date = cells[1]?.textContent.trim() || "";
+                const teacher = cells[2]?.textContent.trim() || "";
+                const category = cells[3]?.textContent.trim() || "";
                 
                 if (content) {
                     data.remarks = data.remarks || [];
