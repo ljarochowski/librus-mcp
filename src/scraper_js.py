@@ -304,53 +304,8 @@ def get_scraper_js() -> str:
         }
         
         // ====== 5. HOMEWORK ======
-        try {
-            console.log("Fetching homework...");
-            await page.goto('https://synergia.librus.pl/moje_zadania');
-            
-            // Set date range to full school year (Sept 1 to Aug 31)
-            const today = new Date();
-            const schoolYearStart = new Date(today.getMonth() >= 8 ? today.getFullYear() : today.getFullYear() - 1, 8, 1);
-            const schoolYearEnd = new Date(today.getMonth() >= 8 ? today.getFullYear() + 1 : today.getFullYear(), 7, 31);
-            
-            const dateFrom = schoolYearStart.toISOString().split('T')[0];
-            const dateTo = schoolYearEnd.toISOString().split('T')[0];
-            
-            await page.fill('#dateFrom', dateFrom);
-            await page.fill('#dateTo', dateTo);
-            await page.click('input[name="submitFiltr"]');
-            await page.waitForLoadState('networkidle');
-            
-            const rowCount = await page.locator("table.decorated tbody tr").count();
-            
-            for (let i = 0; i < rowCount; i++) {
-                const row = page.locator("table.decorated tbody tr").nth(i);
-                const cells = await row.locator("td").all();
-                if (cells.length < 7) continue;
-                
-                const subject = await cells[0].textContent() || "";
-                const teacher = await cells[1].textContent() || "";
-                const title = await cells[2].textContent() || "";
-                const category = await cells[3].textContent() || "";
-                const dateAdded = await cells[4].textContent() || "";
-                const dateDue = await cells[6].textContent() || "";
-                
-                if (title.trim() && subject.trim()) {
-                    data.homework = data.homework || [];
-                    data.homework.push({
-                        subject: subject.trim(),
-                        teacher: teacher.trim(),
-                        title: title.trim(),
-                        category: category.trim(),
-                        dateAdded: dateAdded.trim(),
-                        dateDue: dateDue.trim()
-                    });
-                }
-            }
-            console.log(`Homework: ${data.homework?.length || 0}`);
-        } catch (e) {
-            console.error("Error fetching homework:", e.message);
-        }
+        // NOTE: Homework is scraped via Python (POST form) - see scraper.py
+        console.log("Homework will be scraped via Python");
         
         // ====== 6. REMARKS/NOTES ======
         try {
