@@ -306,7 +306,16 @@ def get_scraper_js() -> str:
         // ====== 5. HOMEWORK ======
         try {
             console.log("Fetching homework...");
-            const doc = await fetchPage('https://synergia.librus.pl/moje_zadania');
+            // Set date range to full school year (Sept 1 to Aug 31)
+            const today = new Date();
+            const schoolYearStart = new Date(today.getMonth() >= 8 ? today.getFullYear() : today.getFullYear() - 1, 8, 1);
+            const schoolYearEnd = new Date(today.getMonth() >= 8 ? today.getFullYear() + 1 : today.getFullYear(), 7, 31);
+            
+            const dateFrom = schoolYearStart.toISOString().split('T')[0];
+            const dateTo = schoolYearEnd.toISOString().split('T')[0];
+            
+            const url = `https://synergia.librus.pl/moje_zadania?dataOd=${dateFrom}&dataDo=${dateTo}`;
+            const doc = await fetchPage(url);
             const rows = doc.querySelectorAll("table.decorated tbody tr");
             
             for (const row of rows) {
