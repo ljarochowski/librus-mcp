@@ -311,20 +311,22 @@ def get_scraper_js() -> str:
             
             for (const row of rows) {
                 const cells = row.querySelectorAll("td");
-                if (cells.length < 5) continue;
+                if (cells.length < 7) continue;
                 
                 const subject = cells[0]?.textContent.trim() || "";
-                const title = cells[1]?.textContent.trim() || "";
-                const teacher = cells[2]?.textContent.trim() || "";
-                const dateAdded = cells[3]?.textContent.trim() || "";
-                const dateDue = cells[4]?.textContent.trim() || "";
+                const teacher = cells[1]?.textContent.trim() || "";
+                const title = cells[2]?.textContent.trim() || "";
+                const category = cells[3]?.textContent.trim() || "";
+                const dateAdded = cells[4]?.textContent.trim() || "";
+                const dateDue = cells[6]?.textContent.trim() || "";
                 
-                if (title) {
+                if (title && subject) {
                     data.homework = data.homework || [];
                     data.homework.push({
                         subject,
-                        title,
                         teacher,
+                        title,
+                        category,
                         dateAdded,
                         dateDue
                     });
@@ -410,6 +412,7 @@ def get_scraper_js() -> str:
         (data.homework || []).forEach((h, i) => {
             md += `### ${i + 1}. ${h.subject} - ${h.title}\\n`;
             md += `- **Teacher:** ${h.teacher}\\n`;
+            md += `- **Category:** ${h.category}\\n`;
             md += `- **Added:** ${h.dateAdded}\\n`;
             md += `- **Due:** ${h.dateDue}\\n\\n`;
         });
