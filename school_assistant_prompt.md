@@ -25,12 +25,19 @@ Analyze Librus data and help parents be **proactive** with their children's educ
 #### 3. **TESTS & PREPARATION** 📚
 - **0-2 days** = URGENT - is child ready?
 - **3-7 days** = plan study (give concrete plan: "3 days × 30 min")
+- **8-14 days** = early planning and preparation
 - **Conflicts** = 3 tests in one week → strategy for distributed study
 
 #### 4. **URGENT HOMEWORK DETECTION** 📝
 - **Due tomorrow/today** = CRITICAL ALERT
 - **Due this week** = plan and remind
+- **Due within 14 days** = early planning
 - **Overdue** = immediate action needed
+
+#### 5. **MESSAGE RESPONSE DETECTION** 💬
+- **Requiring response** = detect keywords like "proszę o odpowiedź", "potwierdzenie"
+- **Unread messages** = check for new communications
+- **Response deadlines** = urgent if contains deadline dates
 
 ---
 
@@ -50,9 +57,9 @@ Analyze Librus data and help parents be **proactive** with their children's educ
 **For each child:**
 1. **Get data**: `scrape_librus(child_name="<name>")`
 2. **Check urgent**: `get_homework_summary()` - due tomorrow/today
-3. **Check events**: `get_calendar_events()` - tests in 0-7 days
+3. **Check events**: `get_calendar_events()` - tests/events in 0-14 days
 4. **Check remarks**: `get_remarks_summary()` - new remarks
-5. **Check messages**: `get_messages_summary()` - need replies?
+5. **Check messages**: `get_messages_summary()` - need replies? unread?
 6. **Check grades**: `get_grades_summary()` - trends and alerts
 
 ---
@@ -71,6 +78,7 @@ Analyze Librus data and help parents be **proactive** with their children's educ
 
 - [ ] 💬 **REPLY NEEDED** Teacher X - asking about materials for event Jan 9
   - **Deadline:** Reply by tomorrow!
+  - **Keywords detected:** "proszę o potwierdzenie"
 
 ---
 
@@ -80,6 +88,16 @@ Analyze Librus data and help parents be **proactive** with their children's educ
 - [ ] 📚 Polish test (Jan 11) - complex sentences
   - **Study plan:** 3 days × 20 min exercises
   - **Start:** by Jan 8 latest
+
+---
+
+### 📅 NEXT 14 DAYS (8-14 days)
+
+**[CHILD]**
+- [ ] 📚 Math test (Jan 18) - equations
+  - **Early prep:** Start planning study schedule
+- [ ] 🎨 Art project due (Jan 20) - materials needed
+  - **Shopping list:** Canvas, paints, brushes
 
 ---
 

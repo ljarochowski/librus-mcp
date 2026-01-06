@@ -562,14 +562,16 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     homework = month_data['data']['homework']
                     all_homework.extend(homework)
             
-            # Sort by due date and categorize
+            # Sort by due date and categorize (14 days ahead)
             from datetime import datetime, timedelta
             now = datetime.now()
             tomorrow = now + timedelta(days=1)
             this_week = now + timedelta(days=7)
+            two_weeks = now + timedelta(days=14)
             
             urgent = []  # Due today/tomorrow
-            upcoming = []  # Due this week
+            upcoming_week = []  # Due this week
+            upcoming_two_weeks = []  # Due within 14 days
             overdue = []
             
             for hw in all_homework:
@@ -582,15 +584,18 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                         elif due_date <= tomorrow:
                             urgent.append(hw)
                         elif due_date <= this_week:
-                            upcoming.append(hw)
+                            upcoming_week.append(hw)
+                        elif due_date <= two_weeks:
+                            upcoming_two_weeks.append(hw)
                     except:
-                        upcoming.append(hw)  # If can't parse, include in upcoming
+                        upcoming_week.append(hw)  # If can't parse, include in upcoming
             
             summary = {
                 "total_homework": len(all_homework),
                 "overdue": overdue,
                 "urgent_today_tomorrow": urgent,
-                "upcoming_this_week": upcoming
+                "upcoming_this_week": upcoming_week,
+                "upcoming_14_days": upcoming_two_weeks
             }
             
             return [TextContent(type="text", text=json.dumps(summary, ensure_ascii=False, indent=2))]
@@ -652,16 +657,39 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     all_messages.extend(messages)
             
             # Sort by date and get recent ones
-            recent_messages = sorted(all_messages, key=lambda x: x.get('date', ''), reverse=True)[:10]
+            recent_messages = sorted(all_messages, key=lambda x: x.get('date', ''), reverse=True)[:15]
             
             # Check for unread or requiring response
             unread = [msg for msg in recent_messages if msg.get('isNew', False)]
+            
+            # Detect messages requiring response (keywords in content)
+            requiring_response = []
+            response_keywords = [
+                'proszę o odpowiedź', 'proszę potwierdzić', 'czy może', 'czy mogłaby', 'czy mógłby',
+                'proszę o informację', 'proszę o kontakt', 'proszę o zgłoszenie', 'proszę o przesłanie',
+                'czy zgadza się', 'czy wyrażają państwo zgodę', 'proszę o podpisanie',
+                'termin', 'deadline', 'do kiedy', 'najpóźniej', 'wymagana odpowiedź'
+            ]
+            
+            for msg in recent_messages:
+                content = msg.get('content', '').lower()
+                if any(keyword in content for keyword in response_keywords):
+                    requiring_response.append(msg)
+            
+            # Also check subject for response indicators
+            for msg in recent_messages:
+                subject = msg.get('subject', '').lower()
+                if any(word in subject for word in ['zgoda', 'potwierdzenie', 'odpowiedź', 'prośba']):
+                    if msg not in requiring_response:
+                        requiring_response.append(msg)
             
             summary = {
                 "total_messages": len(all_messages),
                 "recent_messages": recent_messages,
                 "unread_count": len(unread),
-                "unread_messages": unread
+                "unread_messages": unread,
+                "requiring_response_count": len(requiring_response),
+                "requiring_response": requiring_response
             }
             
             return [TextContent(type="text", text=json.dumps(summary, ensure_ascii=False, indent=2))]
@@ -714,18 +742,19 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     events = month_data['data']['rawData'].get('calendar', [])
                     all_events.extend(events)
             
-            # Sort by date and get upcoming events
-            from datetime import datetime
+            # Sort by date and get upcoming events (14 days ahead)
+            from datetime import datetime, timedelta
             now = datetime.now()
+            two_weeks = now + timedelta(days=14)
             upcoming_events = []
             
             for event in all_events:
                 event_date_str = event.get('date', '')
                 if event_date_str:
                     try:
-                        # Parse date and check if upcoming
+                        # Parse date and check if within 14 days
                         event_date = datetime.strptime(event_date_str, '%Y-%m-%d')
-                        if event_date >= now:
+                        if now <= event_date <= two_weeks:
                             upcoming_events.append(event)
                     except:
                         # If date parsing fails, include anyway
@@ -733,7 +762,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             
             summary = {
                 "total_events": len(all_events),
-                "upcoming_events": sorted(upcoming_events, key=lambda x: x.get('date', ''))[:10]
+                "upcoming_14_days": sorted(upcoming_events, key=lambda x: x.get('date', ''))
             }
             
             return [TextContent(type="text", text=json.dumps(summary, ensure_ascii=False, indent=2))]
