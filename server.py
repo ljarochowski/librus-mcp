@@ -329,8 +329,92 @@ async def list_tools() -> list[Tool]:
             }
         ),
         Tool(
+            name="get_homework_summary",
+            description="Get homework assignments and deadlines for a child",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "child_name": {
+                        "type": "string",
+                        "description": "Child name or alias"
+                    }
+                },
+                "required": ["child_name"]
+            }
+        ),
+        Tool(
+            name="get_remarks_summary", 
+            description="Get teacher remarks and notes for a child",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "child_name": {
+                        "type": "string",
+                        "description": "Child name or alias"
+                    }
+                },
+                "required": ["child_name"]
+            }
+        ),
+        Tool(
+            name="get_messages_summary",
+            description="Get messages from teachers for a child", 
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "child_name": {
+                        "type": "string",
+                        "description": "Child name or alias"
+                    }
+                },
+                "required": ["child_name"]
+            }
+        ),
+        Tool(
             name="get_grades_summary",
             description="Get grades summary for a child (recent grades, averages, trends)",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "child_name": {
+                        "type": "string",
+                        "description": "Child name or alias"
+                    }
+                },
+                "required": ["child_name"]
+            }
+        ),
+        Tool(
+            name="get_homework_summary",
+            description="Get homework assignments and deadlines for a child",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "child_name": {
+                        "type": "string",
+                        "description": "Child name or alias"
+                    }
+                },
+                "required": ["child_name"]
+            }
+        ),
+        Tool(
+            name="get_remarks_summary",
+            description="Get teacher remarks and notes for a child",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "child_name": {
+                        "type": "string",
+                        "description": "Child name or alias"
+                    }
+                },
+                "required": ["child_name"]
+            }
+        ),
+        Tool(
+            name="get_messages_summary",
+            description="Get messages from teachers for a child",
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -463,6 +547,126 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 return [TextContent(type="text", text=f"No pending tasks for {child_name}")]
         except Exception as e:
             return [TextContent(type="text", text=f"Error loading tasks: {str(e)}")]
+    
+    elif name == "get_homework_summary":
+        child_name = arguments["child_name"]
+        try:
+            data = get_recent_months_data(child_name, 2)
+            if not data:
+                return [TextContent(type="text", text=f"No recent data found for {child_name}")]
+            
+            # Extract homework from recent data
+            all_homework = []
+            for month_data in data.values():
+                if 'data' in month_data and 'homework' in month_data['data']:
+                    homework = month_data['data']['homework']
+                    all_homework.extend(homework)
+            
+            # Sort by due date and categorize
+            from datetime import datetime, timedelta
+            now = datetime.now()
+            tomorrow = now + timedelta(days=1)
+            this_week = now + timedelta(days=7)
+            
+            urgent = []  # Due today/tomorrow
+            upcoming = []  # Due this week
+            overdue = []
+            
+            for hw in all_homework:
+                due_date_str = hw.get('dateDue', '')
+                if due_date_str:
+                    try:
+                        due_date = datetime.strptime(due_date_str, '%Y-%m-%d')
+                        if due_date < now:
+                            overdue.append(hw)
+                        elif due_date <= tomorrow:
+                            urgent.append(hw)
+                        elif due_date <= this_week:
+                            upcoming.append(hw)
+                    except:
+                        upcoming.append(hw)  # If can't parse, include in upcoming
+            
+            summary = {
+                "total_homework": len(all_homework),
+                "overdue": overdue,
+                "urgent_today_tomorrow": urgent,
+                "upcoming_this_week": upcoming
+            }
+            
+            return [TextContent(type="text", text=json.dumps(summary, ensure_ascii=False, indent=2))]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error getting homework: {str(e)}")]
+    
+    elif name == "get_remarks_summary":
+        child_name = arguments["child_name"]
+        try:
+            data = get_recent_months_data(child_name, 2)
+            if not data:
+                return [TextContent(type="text", text=f"No recent data found for {child_name}")]
+            
+            # Extract remarks from recent data
+            all_remarks = []
+            for month_data in data.values():
+                if 'data' in month_data and 'rawData' in month_data['data']:
+                    remarks = month_data['data']['rawData'].get('remarks', [])
+                    all_remarks.extend(remarks)
+            
+            # Categorize remarks
+            positive = []
+            negative = []
+            neutral = []
+            
+            for remark in all_remarks:
+                content = remark.get('content', '').lower()
+                if any(word in content for word in ['dobr', 'świetn', 'wzorn', 'aktywn', 'pomoc']):
+                    positive.append(remark)
+                elif any(word in content for word in ['brak', 'nie', 'źle', 'słab', 'problem']):
+                    negative.append(remark)
+                else:
+                    neutral.append(remark)
+            
+            summary = {
+                "total_remarks": len(all_remarks),
+                "recent_remarks": all_remarks[-5:] if all_remarks else [],  # Last 5
+                "positive": positive,
+                "negative": negative,
+                "neutral": neutral
+            }
+            
+            return [TextContent(type="text", text=json.dumps(summary, ensure_ascii=False, indent=2))]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error getting remarks: {str(e)}")]
+    
+    elif name == "get_messages_summary":
+        child_name = arguments["child_name"]
+        try:
+            data = get_recent_months_data(child_name, 2)
+            if not data:
+                return [TextContent(type="text", text=f"No recent data found for {child_name}")]
+            
+            # Extract messages from recent data
+            all_messages = []
+            for month_data in data.values():
+                if 'data' in month_data and 'rawData' in month_data['data']:
+                    messages = month_data['data']['rawData'].get('messages', [])
+                    all_messages.extend(messages)
+            
+            # Sort by date and get recent ones
+            recent_messages = sorted(all_messages, key=lambda x: x.get('date', ''), reverse=True)[:10]
+            
+            # Check for unread or requiring response
+            unread = [msg for msg in recent_messages if msg.get('isNew', False)]
+            
+            summary = {
+                "total_messages": len(all_messages),
+                "recent_messages": recent_messages,
+                "unread_count": len(unread),
+                "unread_messages": unread
+            }
+            
+            return [TextContent(type="text", text=json.dumps(summary, ensure_ascii=False, indent=2))]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error getting messages: {str(e)}")]
     
     elif name == "get_grades_summary":
         child_name = arguments["child_name"]
