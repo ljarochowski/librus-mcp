@@ -236,30 +236,56 @@ def get_scraper_js() -> str:
                     if (row.getAttribute('name') === 'przedmioty_all') continue;
                     
                     const cells = row.querySelectorAll("td");
-                    if (cells.length < 6) continue;
+                    if (cells.length < 3) continue;
                     
                     const subject = cells[1]?.textContent.trim();
                     if (!subject) continue;
                     
-                    const gradeSpans = cells[2]?.querySelectorAll("span.grade-box") || [];
+                    const gradeCell = cells[2];
+                    if (!gradeCell) continue;
                     
-                    for (const gradeSpan of gradeSpans) {
-                        const grade = gradeSpan.textContent.trim();
-                        const title = gradeSpan.getAttribute('title') || "";
-                        
-                        const dateMatch = title.match(/Data:\\s*([^,]+)/);
-                        const categoryMatch = title.match(/Kategoria:\\s*([^,]+)/);
-                        const weightMatch = title.match(/Waga:\\s*([^,]+)/);
-                        const teacherMatch = title.match(/Nauczyciel:\\s*(.+)/);
-                        
-                        data.grades.push({
-                            subject,
-                            grade,
-                            date: dateMatch ? dateMatch[1].trim() : "",
-                            category: categoryMatch ? categoryMatch[1].trim() : "",
-                            weight: weightMatch ? weightMatch[1].trim() : "",
-                            teacher: teacherMatch ? teacherMatch[1].trim() : ""
-                        });
+                    // Extract grades from span.grade-box using class="ocena" links
+                    const gradeLinks = gradeCell.querySelectorAll('a.ocena');
+                    for (const link of gradeLinks) {
+                        const grade = link.textContent.trim();
+                        if (grade) {
+                            data.grades.push({
+                                subject,
+                                grade,
+                                date: "",
+                                category: "",
+                                weight: "",
+                                teacher: ""
+                            });
+                        }
+                    }
+                    
+                    // Check for nested table in next row (descriptive grades)
+                    const nextRow = row.nextElementSibling;
+                    if (nextRow && nextRow.getAttribute('name') === 'przedmioty_all') {
+                        const nestedTable = nextRow.querySelector("table tbody");
+                        if (nestedTable) {
+                            const gradeRows = nestedTable.querySelectorAll("tr.detail-grades");
+                            for (const gradeRow of gradeRows) {
+                                const gradeCells = gradeRow.querySelectorAll("td");
+                                if (gradeCells.length < 5) continue;
+                                
+                                const grade = gradeCells[0]?.textContent.trim();
+                                const category = gradeCells[2]?.textContent.trim();
+                                const date = gradeCells[4]?.textContent.trim();
+                                
+                                if (grade && grade !== 'Brak ocen' && category && (category.startsWith('Edukacja') || category.startsWith('Rozwój'))) {
+                                    data.grades.push({
+                                        subject: category,
+                                        grade,
+                                        date: date || "",
+                                        category: "",
+                                        weight: "",
+                                        teacher: ""
+                                    });
+                                }
+                            }
+                        }
                     }
                 }
             }
