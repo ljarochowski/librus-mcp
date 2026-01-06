@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Credentials & sensitive data
+credentials.json
+.env
+*.secret
+
+# Librus data (contains children's personal info)
+.librus_scraper/
+
+# Backup files
+*.bak
+*.bak*
+*.backup*
+*.before_*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+test_*.py
+*.patch
