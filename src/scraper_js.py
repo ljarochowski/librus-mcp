@@ -306,6 +306,8 @@ def get_scraper_js() -> str:
         // ====== 5. HOMEWORK ======
         try {
             console.log("Fetching homework...");
+            await page.goto('https://synergia.librus.pl/moje_zadania');
+            
             // Set date range to full school year (Sept 1 to Aug 31)
             const today = new Date();
             const schoolYearStart = new Date(today.getMonth() >= 8 ? today.getFullYear() : today.getFullYear() - 1, 8, 1);
@@ -314,30 +316,34 @@ def get_scraper_js() -> str:
             const dateFrom = schoolYearStart.toISOString().split('T')[0];
             const dateTo = schoolYearEnd.toISOString().split('T')[0];
             
-            const url = `https://synergia.librus.pl/moje_zadania?dataOd=${dateFrom}&dataDo=${dateTo}`;
-            const doc = await fetchPage(url);
-            const rows = doc.querySelectorAll("table.decorated tbody tr");
+            await page.fill('#dateFrom', dateFrom);
+            await page.fill('#dateTo', dateTo);
+            await page.click('input[name="submitFiltr"]');
+            await page.waitForLoadState('networkidle');
             
-            for (const row of rows) {
-                const cells = row.querySelectorAll("td");
+            const rowCount = await page.locator("table.decorated tbody tr").count();
+            
+            for (let i = 0; i < rowCount; i++) {
+                const row = page.locator("table.decorated tbody tr").nth(i);
+                const cells = await row.locator("td").all();
                 if (cells.length < 7) continue;
                 
-                const subject = cells[0]?.textContent.trim() || "";
-                const teacher = cells[1]?.textContent.trim() || "";
-                const title = cells[2]?.textContent.trim() || "";
-                const category = cells[3]?.textContent.trim() || "";
-                const dateAdded = cells[4]?.textContent.trim() || "";
-                const dateDue = cells[6]?.textContent.trim() || "";
+                const subject = await cells[0].textContent() || "";
+                const teacher = await cells[1].textContent() || "";
+                const title = await cells[2].textContent() || "";
+                const category = await cells[3].textContent() || "";
+                const dateAdded = await cells[4].textContent() || "";
+                const dateDue = await cells[6].textContent() || "";
                 
-                if (title && subject) {
+                if (title.trim() && subject.trim()) {
                     data.homework = data.homework || [];
                     data.homework.push({
-                        subject,
-                        teacher,
-                        title,
-                        category,
-                        dateAdded,
-                        dateDue
+                        subject: subject.trim(),
+                        teacher: teacher.trim(),
+                        title: title.trim(),
+                        category: category.trim(),
+                        dateAdded: dateAdded.trim(),
+                        dateDue: dateDue.trim()
                     });
                 }
             }
