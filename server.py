@@ -174,7 +174,7 @@ async def scrape_librus(child_name: str, force_full: bool = False) -> Dict:
             if cookies_file.exists():
                 cookies_file.unlink()
                 
-            raise Exception(f"Login session expired for {child_name}. Use manual_login tool to refresh cookies.")
+            raise Exception(f"Session expired for {child_name}. Use manual_login(child_name='{child_name}') to refresh login session first.")
         else:
             raise e
 
@@ -779,9 +779,32 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             if cookies_file.exists():
                 cookies_file.unlink()
             
-            # Trigger manual login by doing a scrape
-            result = await scrape_librus(child_name, force_full=True)
-            return [TextContent(type="text", text=f"Manual login completed for {child_name}. Fresh cookies saved.")]
+            # Show clear message about which child is being logged in
+            print(f"\n{Colors.BOLD}{Colors.YELLOW}=== MANUAL LOGIN FOR {child_name.upper()} ==={Colors.ENDC}")
+            print(f"{Colors.YELLOW}Opening browser for {child_name} login only.{Colors.ENDC}")
+            print(f"{Colors.YELLOW}Please log in as parent for {child_name} and close browser when done.{Colors.ENDC}\n")
+            
+            # Do a minimal login-only scrape
+            browser = await async_playwright().start()
+            browser = await browser.chromium.launch(headless=False)  # Always visible for manual login
+            
+            context = await browser.new_context()
+            page = await context.new_page()
+            
+            await page.goto('https://portal.librus.pl/rodzina/synergia/loguj')
+            print(f"{Colors.YELLOW}Waiting for login for {child_name}...{Colors.ENDC}")
+            
+            # Wait for successful login
+            await page.wait_for_url(lambda url: '/rodzic' in url, timeout=300000)  # 5 min timeout
+            print(f"{Colors.GREEN}Login successful for {child_name}!{Colors.ENDC}")
+            
+            # Save cookies
+            await context.storage_state(path=str(cookies_file))
+            
+            await context.close()
+            await browser.close()
+            
+            return [TextContent(type="text", text=f"Manual login completed for {child_name}. Session saved. You can now scrape data.")]
         except Exception as e:
             return [TextContent(type="text", text=f"Manual login failed for {child_name}: {str(e)}")]
     
