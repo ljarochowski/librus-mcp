@@ -15,7 +15,9 @@ from src.config import config, Colors
 from src.credentials import resolve_child_name, list_children
 from src.storage import (
     get_context_dir, load_state, save_state, save_scrape_result,
-    load_memory, save_memory
+    load_memory, save_memory, save_monthly_data, load_monthly_data,
+    get_recent_months_data, save_analysis_summary, load_analysis_summary,
+    save_tasks, load_tasks
 )
 from src.scraper import scrape_librus_data
 from src.memory import update_memory, format_memory
@@ -138,7 +140,14 @@ async def scrape_librus(child_name: str, force_full: bool = False) -> Dict:
         state["last_scrape_iso"] = now.strftime("%Y-%m-%d %H:%M:%S")
         save_state(child_name, state)
         
-        # Save results
+        # Save data in monthly pickle format
+        save_monthly_data(child_name, now.year, now.month, {
+            "timestamp": now.isoformat(),
+            "data": result,
+            "mode": "delta" if not force_full else "full"
+        })
+        
+        # Save results (backward compatibility)
         save_scrape_result(child_name, result["markdown"])
         await update_memory(child_name, result.get("rawData", {}))
         
