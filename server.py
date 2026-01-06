@@ -194,6 +194,93 @@ async def list_tools() -> list[Tool]:
             }
         ),
         Tool(
+            name="get_analysis_summary",
+            description="Get agent's previous analysis summary for a child",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "child_name": {
+                        "type": "string",
+                        "description": "Child name or alias"
+                    }
+                },
+                "required": ["child_name"]
+            }
+        ),
+        Tool(
+            name="save_analysis_summary", 
+            description="Save agent's analysis summary for a child",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "child_name": {
+                        "type": "string",
+                        "description": "Child name or alias"
+                    },
+                    "summary_text": {
+                        "type": "string",
+                        "description": "Analysis summary (JSON or text)"
+                    }
+                },
+                "required": ["child_name", "summary_text"]
+            }
+        ),
+        Tool(
+            name="get_recent_data",
+            description="Get recent months data for analysis",
+            inputSchema={
+                "type": "object", 
+                "properties": {
+                    "child_name": {
+                        "type": "string",
+                        "description": "Child name or alias"
+                    },
+                    "months_back": {
+                        "type": "integer",
+                        "description": "Number of months to look back (default: 2)",
+                        "default": 2
+                    }
+                },
+                "required": ["child_name"]
+            }
+        ),
+        Tool(
+            name="mark_task_done",
+            description="Mark a task as completed by parent",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "child_name": {
+                        "type": "string",
+                        "description": "Child name or alias"
+                    },
+                    "task_id": {
+                        "type": "string", 
+                        "description": "Task identifier"
+                    },
+                    "notes": {
+                        "type": "string",
+                        "description": "Optional completion notes"
+                    }
+                },
+                "required": ["child_name", "task_id"]
+            }
+        ),
+        Tool(
+            name="get_pending_tasks",
+            description="Get pending tasks for a child",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "child_name": {
+                        "type": "string",
+                        "description": "Child name or alias"
+                    }
+                },
+                "required": ["child_name"]
+            }
+        ),
+        Tool(
             name="save_analysis",
             description="Save an insight or note to child's memory",
             inputSchema={
@@ -230,7 +317,87 @@ async def list_tools() -> list[Tool]:
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     """Handle MCP tool calls"""
     
-    if name == "scrape_librus":
+    if name == "get_analysis_summary":
+        child_name = arguments["child_name"]
+        try:
+            summary = storage.load_analysis_summary(child_name)
+            if summary:
+                return [TextContent(type="text", text=json.dumps(summary, ensure_ascii=False, indent=2))]
+            else:
+                return [TextContent(type="text", text=f"No analysis summary found for {child_name}")]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error loading analysis summary: {str(e)}")]
+    
+    elif name == "save_analysis_summary":
+        child_name = arguments["child_name"]
+        summary_text = arguments["summary_text"]
+        try:
+            # Parse the summary text as JSON or create structured summary
+            try:
+                summary = json.loads(summary_text)
+            except json.JSONDecodeError:
+                # If not JSON, create structured summary
+                summary = {
+                    "timestamp": datetime.now().isoformat(),
+                    "analysis": summary_text,
+                    "key_points": [],
+                    "action_items": [],
+                    "concerns": []
+                }
+            
+            storage.save_analysis_summary(child_name, summary)
+            return [TextContent(type="text", text=f"Analysis summary saved for {child_name}")]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error saving analysis summary: {str(e)}")]
+    
+    elif name == "get_recent_data":
+        child_name = arguments["child_name"]
+        months_back = arguments.get("months_back", 2)
+        try:
+            data = storage.get_recent_months_data(child_name, months_back)
+            if data:
+                # Convert to JSON for agent consumption
+                return [TextContent(type="text", text=json.dumps(data, ensure_ascii=False, indent=2, default=str))]
+            else:
+                return [TextContent(type="text", text=f"No recent data found for {child_name}")]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error loading recent data: {str(e)}")]
+    
+    elif name == "mark_task_done":
+        child_name = arguments["child_name"]
+        task_id = arguments["task_id"]
+        notes = arguments.get("notes", "")
+        try:
+            tasks = storage.load_tasks(child_name) or {"completed": [], "pending": []}
+            
+            # Add to completed with timestamp
+            completed_task = {
+                "task_id": task_id,
+                "completed_at": datetime.now().isoformat(),
+                "notes": notes
+            }
+            tasks["completed"].append(completed_task)
+            
+            # Remove from pending if exists
+            tasks["pending"] = [t for t in tasks.get("pending", []) if t.get("id") != task_id]
+            
+            storage.save_tasks(child_name, tasks)
+            return [TextContent(type="text", text=f"Task {task_id} marked as completed for {child_name}")]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error marking task done: {str(e)}")]
+    
+    elif name == "get_pending_tasks":
+        child_name = arguments["child_name"]
+        try:
+            tasks = storage.load_tasks(child_name)
+            if tasks and tasks.get("pending"):
+                return [TextContent(type="text", text=json.dumps(tasks["pending"], ensure_ascii=False, indent=2))]
+            else:
+                return [TextContent(type="text", text=f"No pending tasks for {child_name}")]
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error loading tasks: {str(e)}")]
+    
+    elif name == "scrape_librus":
         child_name = arguments["child_name"]
         force_full = arguments.get("force_full", False)
         
