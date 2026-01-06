@@ -68,6 +68,42 @@ children:
 
 ## Usage
 
+### Kiro CLI Agent
+
+To use the school assistant agent with Kiro CLI:
+
+1. **Copy the example agent configuration:**
+   ```bash
+   mkdir -p ~/.kiro/agents
+   cp kiro-agent-example.json ~/.kiro/agents/school-assistant.json
+   ```
+
+2. **Edit the configuration with your paths:**
+   ```bash
+   # Update these paths in ~/.kiro/agents/school-assistant.json:
+   # - prompt: file:///your/path/to/librus-mcp/school_assistant_prompt.md
+   # - mcpServers.librus.args: ["/your/path/to/librus-mcp/server.py"]
+   # - resources: file:///your/path/to/.librus_scraper/**/*.md
+   ```
+
+3. **Start Kiro with the agent:**
+   ```bash
+   kiro-cli --agent school-assistant
+   ```
+   
+   Or swap to it in an active session:
+   ```bash
+   /agent swap
+   # Select: school-assistant
+   ```
+
+4. **Ask about your children:**
+   ```
+   Jak moje dziecko radzi sobie w szkole?
+   ```
+
+### MCP Server Configuration
+
 ### As MCP Server
 
 Add to your MCP client configuration (e.g., Claude Desktop `~/Library/Application Support/Claude/claude_desktop_config.json`):
