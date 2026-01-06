@@ -386,6 +386,48 @@ async def list_tools() -> list[Tool]:
             }
         ),
         Tool(
+            name="generate_pdf_report",
+            description="Generate PDF family report and save to file",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "report_type": {
+                        "type": "string",
+                        "enum": ["weekly", "monthly"],
+                        "description": "Type of report to generate",
+                        "default": "weekly"
+                    },
+                    "output_path": {
+                        "type": "string",
+                        "description": "Path where to save PDF file",
+                        "default": "/Users/ljarochowski/Desktop/raport_rodzinny.pdf"
+                    }
+                },
+                "required": []
+            }
+        ),
+        Tool(
+            name="generate_pdf_report",
+            description="Generate PDF family report and save to file",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "report_type": {
+                        "type": "string",
+                        "enum": ["weekly", "monthly"],
+                        "description": "Type of report to generate",
+                        "default": "weekly"
+                    },
+                    "filename": {
+                        "type": "string",
+                        "description": "Filename for PDF (will be saved to current directory)",
+                        "default": "raport_rodzinny.pdf"
+                    }
+                },
+                "required": []
+            }
+        ),
+        Tool(
             name="generate_family_report",
             description="Generate comprehensive family report with all children",
             inputSchema={
@@ -664,6 +706,77 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         except Exception as e:
             return [TextContent(type="text", text=f"Error analyzing trends: {str(e)}")]
     
+    elif name == "generate_pdf_report":
+        report_type = arguments.get("report_type", "weekly")
+        filename = arguments.get("filename", "raport_rodzinny.pdf")
+        try:
+            # First generate the text report
+            text_report_result = await call_tool("generate_family_report", {"report_type": report_type})
+            text_report = text_report_result[0].text if text_report_result else "Error generating report"
+            
+            # Try to create PDF using reportlab
+            try:
+                from reportlab.lib.pagesizes import A4
+                from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+                from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                from reportlab.lib.units import inch
+                from reportlab.pdfbase import pdfmetrics
+                from reportlab.pdfbase.ttfonts import TTFont
+                
+                # Create PDF
+                doc = SimpleDocTemplate(filename, pagesize=A4)
+                styles = getSampleStyleSheet()
+                
+                # Custom styles
+                title_style = ParagraphStyle(
+                    'CustomTitle',
+                    parent=styles['Heading1'],
+                    fontSize=16,
+                    spaceAfter=30,
+                )
+                
+                heading_style = ParagraphStyle(
+                    'CustomHeading',
+                    parent=styles['Heading2'],
+                    fontSize=14,
+                    spaceAfter=12,
+                )
+                
+                normal_style = styles['Normal']
+                
+                # Convert markdown-like text to PDF elements
+                story = []
+                lines = text_report.split('\n')
+                
+                for line in lines:
+                    line = line.strip()
+                    if not line:
+                        story.append(Spacer(1, 6))
+                    elif line.startswith('# '):
+                        story.append(Paragraph(line[2:], title_style))
+                    elif line.startswith('## '):
+                        story.append(Paragraph(line[3:], heading_style))
+                    elif line.startswith('### '):
+                        story.append(Paragraph(line[4:], heading_style))
+                    elif line.startswith('- '):
+                        story.append(Paragraph(f"• {line[2:]}", normal_style))
+                    else:
+                        if line:
+                            story.append(Paragraph(line, normal_style))
+                
+                doc.build(story)
+                
+                return [TextContent(type="text", text=f"PDF report generated successfully: {filename}")]
+                
+            except ImportError:
+                # Fallback: save as text file
+                with open(filename.replace('.pdf', '.txt'), 'w', encoding='utf-8') as f:
+                    f.write(text_report)
+                return [TextContent(type="text", text=f"PDF library not available. Report saved as text file: {filename.replace('.pdf', '.txt')}")]
+                
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error generating PDF report: {str(e)}")]
+    
     elif name == "generate_family_report":
         report_type = arguments.get("report_type", "weekly")
         try:
@@ -673,7 +786,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             from datetime import datetime
             report_date = datetime.now().strftime("%d.%m.%Y")
             
-            report = f"# 📊 RAPORT RODZINNY - {report_date}\n\n"
+            report = f"# RAPORT RODZINNY - {report_date}\n\n"
             
             urgent_items = []
             weekly_items = []
@@ -701,57 +814,57 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                             try:
                                 due_date = datetime.strptime(due_date_str, '%Y-%m-%d')
                                 if due_date.date() == tomorrow.date():
-                                    urgent_items.append(f"**[{child_name.upper()}]** - 📝 ZADANIE JUTRO! {hw.get('subject', 'Unknown')} - {hw.get('title', 'sprawdź czy zrobione!')}")
+                                    urgent_items.append(f"**[{child_name.upper()}]** - ZADANIE JUTRO! {hw.get('subject', 'Unknown')} - {hw.get('title', 'sprawdź czy zrobione!')}")
                             except:
                                 pass
                     
-                    report += f"## 👦 {child_name.upper()}\n\n"
-                    report += f"### 🚨 PILNE ACTION POINTS\n"
+                    report += f"## {child_name.upper()}\n\n"
+                    report += f"### PILNE ACTION POINTS\n"
                     
                     # Add homework analysis
                     urgent_hw = [hw for hw in all_homework if hw.get('dateDue') == tomorrow.strftime('%Y-%m-%d')]
                     if urgent_hw:
                         for hw in urgent_hw:
-                            report += f"- 📝 **ZADANIE JUTRO:** {hw.get('subject')} - {hw.get('title')}\n"
+                            report += f"- ZADANIE JUTRO: {hw.get('subject')} - {hw.get('title')}\n"
                     else:
-                        report += "- ✅ Brak pilnych zadań na jutro\n"
+                        report += "- Brak pilnych zadań na jutro\n"
                     
-                    report += f"\n### 📊 OSTATNIE OCENY\n"
+                    report += f"\n### OSTATNIE OCENY\n"
                     report += "*(Analiza trendów dostępna przez analyze_grade_trends)*\n\n"
                     
-                    report += f"### 📅 NADCHODZĄCE WYDARZENIA\n"
+                    report += f"### NADCHODZĄCE WYDARZENIA\n"
                     report += "*(Sprawdziany i wydarzenia na 14 dni)*\n\n"
                     
                     report += "---\n\n"
                     
                 except Exception as e:
-                    report += f"## ❌ {child_name.upper()} - Błąd pobierania danych: {str(e)}\n\n"
+                    report += f"## {child_name.upper()} - Błąd pobierania danych: {str(e)}\n\n"
             
             # Add family summary
-            report += "## 👨👩👦👦 WSPÓLNE DLA WSZYSTKICH\n\n"
+            report += "## WSPÓLNE DLA WSZYSTKICH\n\n"
             
             if urgent_items:
-                report += "### 🚨 PILNE NA DZIŚ/JUTRO\n"
+                report += "### PILNE NA DZIŚ/JUTRO\n"
                 for item in urgent_items:
                     report += f"- {item}\n"
                 report += "\n"
             
-            report += "### 💰 PŁATNOŚCI DO SPRAWDZENIA\n"
+            report += "### PŁATNOŚCI DO SPRAWDZENIA\n"
             report += "- Obiady szkolne\n"
             report += "- Składki klasowe\n"
             report += "- Wycieczki\n\n"
             
-            report += "### 📋 ZAKUPY WEEKEND\n"
+            report += "### ZAKUPY WEEKEND\n"
             report += "- Materiały szkolne\n"
             report += "- Stroje na wydarzenia\n\n"
             
-            report += "### 📄 PODSUMOWANIE NA LODÓWKĘ\n"
+            report += "### PODSUMOWANIE NA LODÓWKĘ\n"
             if urgent_items:
                 report += "**PILNE:**\n"
                 for item in urgent_items[:3]:  # Max 3 items for fridge
                     report += f"• {item.replace('**', '').replace('[', '').replace(']', '')}\n"
             else:
-                report += "• Wszystko pod kontrolą! ✅\n"
+                report += "• Wszystko pod kontrolą!\n"
             
             return [TextContent(type="text", text=report)]
         except Exception as e:
