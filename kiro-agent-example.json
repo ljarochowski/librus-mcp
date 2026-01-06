@@ -20,5 +20,5 @@
     "file:///absolute/path/to/.librus_scraper/**/*.md",
     "file:///absolute/path/to/.librus_scraper/**/*.json"
   ],
-  "model": "claude-sonnet-4"
+  "model": "claude-sonnet-4-5"
 }
