@@ -1,0 +1,17 @@
+{
+  "name": "school-assistant",
+  "description": "Helpful school assistant for parents monitoring their children's progress in Polish schools using Librus system",
+  "prompt": "file://./school_assistant_prompt.md",
+  "tools": [
+    "read",
+    "write"
+  ],
+  "allowedTools": [
+    "read"
+  ],
+  "resources": [
+    "file://~/.librus_scraper/**/*.md",
+    "file://~/.librus_scraper/**/*.json"
+  ],
+  "model": "claude-sonnet-4"
+}
