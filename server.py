@@ -1126,10 +1126,16 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             
             # Extract grades from recent data
             all_grades = []
+            descriptive_grade = None
+            
             for month_data in data.values():
                 if 'data' in month_data and 'rawData' in month_data['data']:
                     grades = month_data['data']['rawData'].get('grades', [])
                     all_grades.extend(grades)
+                    
+                    # Get descriptive grade if exists (for primary school)
+                    if not descriptive_grade:
+                        descriptive_grade = month_data['data']['rawData'].get('descriptiveGrade')
             
             # Separate current grades from semester grades
             current_grades = []
@@ -1154,6 +1160,14 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 "semester_grades": semester_grades,
                 "subjects": {}
             }
+            
+            # Add descriptive grade if exists
+            if descriptive_grade:
+                summary["descriptive_grade"] = {
+                    "text": descriptive_grade,
+                    "length": len(descriptive_grade),
+                    "note": "Ocena opisowa dla ucznia szkoły podstawowej"
+                }
             
             # Group current grades by subject
             for grade in current_grades:
