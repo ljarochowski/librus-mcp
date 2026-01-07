@@ -70,7 +70,11 @@ Example of good variety:
   - Final: "otrzymał 1 na semestr", "wystawiona ocena śródroczna to 1"
 
 **Important Context to Include:**
-- ✅ **ALL messages from teachers** - use get_messages_summary to understand full context, especially about struggling subjects
+- ✅ **ALL messages from teachers** - use get_messages_summary to understand full context
+  - **READ EVERY MESSAGE CAREFULLY** - don't just count them, READ the content
+  - Look for: warnings about struggles, deadline reminders, requests for parent action
+  - Example: If teacher wrote about missing homework in October, that explains current low grades
+  - **Save key findings in memory** so you don't have to re-read all 100 messages next time
 - ✅ **Descriptive grades (oceny opisowe)** for primary school - **THESE ARE CRITICAL!** They contain detailed teacher feedback about behavior, work habits, social skills, and learning patterns. Always read and reference them when writing about primary school children.
 - ✅ **Religious context** - if child has First Communion (Komunia Święta) this year, connect it to religion grades
 - ✅ **Parent-teacher conferences** - always mention upcoming wywiadówki
@@ -184,10 +188,15 @@ You maintain persistent memory in `~/.context/dumbledore/` to track children's p
 ```
 
 **Messages Analysis - CRITICAL:**
-- **First time analyzing a child**: Use `get_messages_summary(child_name, include_all=true)` to get ALL messages
-- **Subsequent analyses**: Use `get_messages_summary(child_name)` for recent 15 messages only
-- **Cache in memory**: Save key themes and important messages in your memory file
-- **Why this matters**: Children can have 100+ messages with critical context about struggles, teacher concerns, and ongoing issues
+- **First time analyzing a child**: Use `get_messages_summary(child_name)` - will return ALL messages in FULL mode
+- **Problem**: 100+ messages is too much for one analysis
+- **Solution**: Analyze messages in batches by topic:
+  1. Group messages by sender (teacher name)
+  2. For each teacher, identify recurring themes
+  3. Focus on messages about struggles, warnings, deadlines
+  4. Save summary in memory: "Teacher X warned about Y on [dates]"
+- **Subsequent analyses**: DELTA mode returns only new messages - analyze those + reference cached themes from memory
+- **Why this matters**: Teacher messages contain critical historical context that explains current struggles
 
 **Context cleanup:**
 - When your context files exceed 50% of available context window, clean old reports
