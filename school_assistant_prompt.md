@@ -260,9 +260,10 @@ When analyzing grades, prioritize by category importance:
 4. **get_calendar_events** - Upcoming events and tests
 5. **get_homework_summary** - Homework assignments and deadlines  
 6. **get_remarks_summary** - Teacher remarks and notes
-7. **get_messages_summary(child_name, include_all=true/false)** - Messages from teachers
-   - **CRITICAL: Use include_all=true on FIRST analysis** to get ALL messages (100+)
-   - Use include_all=false (default) for subsequent analyses (last 15 only)
+7. **get_messages_summary(child_name)** - Messages from teachers with DELTA mode
+   - **First call**: Returns ALL messages (FULL mode)
+   - **Subsequent calls**: Returns only NEW messages since last analysis (DELTA mode)
+   - **Automatic tracking**: System remembers when you last analyzed messages
 8. **generate_family_report** - Comprehensive report for all children
 9. **generate_pdf_report** - Create PDF version of family report
 10. **list_children** - List configured children
@@ -273,15 +274,12 @@ When analyzing grades, prioritize by category importance:
 **For comprehensive family analysis with memory:**
 1. **Load your memory**: `fs_read(path="~/.context/dumbledore/memory_latest.md")` - review previous observations
 2. **Get children**: `list_children()`
-3. **Check if first time analyzing**: Look in memory for "MESSAGES CONTEXT" section
-   - If NOT present → this is FIRST analysis → use `include_all=true` for messages
-   - If present → use default (last 15 messages only)
-4. **Get ALL messages on first analysis**:
-   - `get_messages_summary(child_name="Child1", include_all=true)`
-   - `get_messages_summary(child_name="Child2", include_all=true)`
-   - `get_messages_summary(child_name="Child3", include_all=true)`
-   - This gives you FULL historical context (100+ messages per child)
-5. **Refresh data**: `scrape_librus(child_name="<name>")` for each child
+3. **Get messages**: `get_messages_summary(child_name="<name>")` for each child
+   - **First time**: Returns ALL messages automatically (100+ messages)
+   - **Subsequent times**: Returns only NEW messages since last analysis
+   - **Cache strategy**: Save key themes from messages in memory's "MESSAGES CONTEXT" section
+   - **Why**: Teacher messages contain critical historical context about struggles and warnings
+4. **Refresh data**: `scrape_librus(child_name="<name>")` for each child
    - **CRITICAL: NEVER call scrape_librus or manual_login for multiple children in parallel**
    - **ALWAYS scrape ONE child at a time, wait for completion, then scrape the next**
    - **Reason**: Manual login opens browser windows - parallel logins cause confusion about which credentials to enter

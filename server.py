@@ -1065,9 +1065,12 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     
     elif name == "get_messages_summary":
         child_name = arguments["child_name"]
-        include_all = arguments.get("include_all", False)  # New parameter
         
         try:
+            # Load state to check last analysis time
+            state = load_state(child_name)
+            last_analysis = state.get("last_messages_analysis")
+            
             data = get_recent_months_data(child_name, 2)
             if not data:
                 return [TextContent(type="text", text=f"No recent data found for {child_name}")]
@@ -1082,11 +1085,18 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             # Sort by date
             all_messages_sorted = sorted(all_messages, key=lambda x: x.get('date', ''), reverse=True)
             
-            # Get messages to analyze
-            if include_all:
-                messages_to_analyze = all_messages_sorted
+            # Filter messages based on last analysis time
+            if last_analysis:
+                # DELTA mode - only new messages since last analysis
+                messages_to_analyze = [
+                    msg for msg in all_messages_sorted 
+                    if msg.get('date', '') > last_analysis
+                ]
+                mode = f"DELTA since {last_analysis}"
             else:
-                messages_to_analyze = all_messages_sorted[:15]
+                # First time - return all messages
+                messages_to_analyze = all_messages_sorted
+                mode = "FULL (first analysis)"
             
             # Check for unread or requiring response
             unread = [msg for msg in messages_to_analyze if msg.get('isNew', False)]
@@ -1112,15 +1122,21 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     if msg not in requiring_response:
                         requiring_response.append(msg)
             
+            # Update state with current analysis time
+            if messages_to_analyze:
+                # Use the newest message date as last_analysis time
+                state["last_messages_analysis"] = all_messages_sorted[0].get('date', '')
+                save_state(child_name, state)
+            
             summary = {
-                "total_messages": len(all_messages),
-                "analyzed_messages": len(messages_to_analyze),
-                "recent_messages": messages_to_analyze,
+                "mode": mode,
+                "total_messages_in_system": len(all_messages),
+                "new_messages": len(messages_to_analyze),
+                "messages": messages_to_analyze,
                 "unread_count": len(unread),
                 "unread_messages": unread,
                 "requiring_response_count": len(requiring_response),
-                "requiring_response": requiring_response,
-                "note": "Use include_all=true to analyze all messages (for initial context building)"
+                "requiring_response": requiring_response
             }
             
             return [TextContent(type="text", text=json.dumps(summary, ensure_ascii=False, indent=2))]
