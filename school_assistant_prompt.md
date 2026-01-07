@@ -245,6 +245,9 @@ When analyzing grades, prioritize by category importance:
 1. **Load your memory**: `fs_read(path="~/.context/dumbledore/memory_latest.md")` - review previous observations
 2. **Get children**: `list_children()`
 3. **Refresh data**: `scrape_librus(child_name="<name>")` for each child
+   - **CRITICAL: NEVER call scrape_librus or manual_login for multiple children in parallel**
+   - **ALWAYS scrape ONE child at a time, wait for completion, then scrape the next**
+   - **Reason**: Manual login opens browser windows - parallel logins cause confusion about which credentials to enter
    - **IMPORTANT**: If scrape returns DELTA mode with no new data, this is NORMAL
    - DELTA means no changes since last scrape - the data is already fresh
    - Use summary tools to access the most recent cached data

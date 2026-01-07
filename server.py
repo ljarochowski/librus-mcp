@@ -5,7 +5,6 @@ Librus MCP Server - scrape Polish school system (Librus Synergia) data via MCP p
 
 import asyncio
 import json
-from datetime import datetime
 from typing import Dict
 
 from playwright.async_api import async_playwright
@@ -96,7 +95,6 @@ async def scrape_librus(child_name: str, force_full: bool = False) -> Dict:
         # This ensures we capture all data from the day of last scrape
         last_scrape = None
         if not is_first and last_scrape_raw:
-            from datetime import datetime, timedelta
             last_dt = datetime.strptime(last_scrape_raw, "%Y-%m-%d %H:%M:%S")
             # Go back to previous day at 23:59:59
             delta_start = (last_dt.date() - timedelta(days=1))
@@ -879,7 +877,6 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             # Get all children
             children = list_children()
             
-            from datetime import datetime
             report_date = datetime.now().strftime("%d.%m.%Y")
             
             report = f"# RAPORT RODZINNY - {report_date}\n\n"
@@ -902,7 +899,6 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                             all_homework.extend(month_data['data']['homework'])
                     
                     # Check for urgent homework (tomorrow)
-                    from datetime import datetime, timedelta
                     tomorrow = datetime.now() + timedelta(days=1)
                     
                     for hw in all_homework:
@@ -982,7 +978,6 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     all_homework.extend(homework)
             
             # Sort by due date and categorize (14 days ahead)
-            from datetime import datetime, timedelta
             now = datetime.now()
             tomorrow = now + timedelta(days=1)
             this_week = now + timedelta(days=7)
@@ -1162,7 +1157,6 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     all_events.extend(events)
             
             # Sort by date and get upcoming events (14 days ahead)
-            from datetime import datetime, timedelta
             now = datetime.now()
             two_weeks = now + timedelta(days=14)
             upcoming_events = []
@@ -1231,6 +1225,12 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         force_full = arguments.get("force_full", False)
         
         result = await scrape_librus(child_name, force_full)
+        
+        if result.get("status") == "session_expired":
+            return [TextContent(
+                type="text",
+                text=f"❌ Session expired for {result['child_name']}. Use manual_login tool to refresh."
+            )]
         
         return [TextContent(
             type="text",

@@ -271,6 +271,51 @@ def get_scraper_js() -> str:
                         }
                     }
                     
+                    // Parse semester/midterm grades (columns 3, 4, 5)
+                    // Column 3: Semester 1, Column 4: Semester 2, Column 5: Final
+                    if (cells.length >= 4) {
+                        const sem1Cell = cells[3];
+                        const sem1Grade = sem1Cell?.textContent.trim();
+                        if (sem1Grade && sem1Grade !== '-' && sem1Grade !== '') {
+                            data.grades.push({
+                                subject,
+                                grade: sem1Grade,
+                                date: "",
+                                category: "przewidywana śródroczna",
+                                weight: "",
+                                teacher: ""
+                            });
+                        }
+                    }
+                    if (cells.length >= 5) {
+                        const sem2Cell = cells[4];
+                        const sem2Grade = sem2Cell?.textContent.trim();
+                        if (sem2Grade && sem2Grade !== '-' && sem2Grade !== '') {
+                            data.grades.push({
+                                subject,
+                                grade: sem2Grade,
+                                date: "",
+                                category: "przewidywana roczna",
+                                weight: "",
+                                teacher: ""
+                            });
+                        }
+                    }
+                    if (cells.length >= 6) {
+                        const finalCell = cells[5];
+                        const finalGrade = finalCell?.textContent.trim();
+                        if (finalGrade && finalGrade !== '-' && finalGrade !== '') {
+                            data.grades.push({
+                                subject,
+                                grade: finalGrade,
+                                date: "",
+                                category: "ocena końcowa",
+                                weight: "",
+                                teacher: ""
+                            });
+                        }
+                    }
+                    
                     // Only parse span.grade-box if no nested grades found
                     if (!hasNestedGrades) {
                         const gradeCell = cells[2];
