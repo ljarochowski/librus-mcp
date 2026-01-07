@@ -82,9 +82,29 @@ def get_last_scan_date(child_name: str) -> Optional[str]:
 
 
 def save_monthly_data(child_name: str, year: int, month: int, data: Dict) -> None:
-    """Save data for specific month in pickle format"""
+    """Save data for specific month in pickle format. For DELTA mode, merge with existing data."""
     child_dir = get_child_dir(child_name)
     monthly_file = child_dir / f"{year}-{month:02d}.pkl"
+    
+    # For DELTA mode, merge with existing data
+    if data.get('mode') == 'delta' and monthly_file.exists():
+        with open(monthly_file, 'rb') as f:
+            existing = pickle.load(f)
+        
+        # Merge rawData arrays
+        if 'data' in existing and 'data' in data:
+            existing_raw = existing['data'].get('rawData', {})
+            new_raw = data['data'].get('rawData', {})
+            
+            # Merge arrays (messages, announcements, grades, calendar)
+            for key in ['messages', 'announcements', 'grades', 'calendar']:
+                if key in new_raw and new_raw[key]:
+                    existing_raw[key] = existing_raw.get(key, []) + new_raw[key]
+            
+            # Update timestamp
+            existing['timestamp'] = data['timestamp']
+            data = existing
+    
     with open(monthly_file, 'wb') as f:
         pickle.dump(data, f)
 
