@@ -247,14 +247,12 @@ def get_scraper_js() -> str:
                                 const category = gradeCells[2]?.textContent.trim();
                                 const date = gradeCells[4]?.textContent.trim();
                                 
-                                // For primary school: category is subject (Edukacja X)
-                                // For middle/high school: use parent row subject, category is grade type
-                                const gradeSubject = (category && (category.startsWith('Edukacja') || category.startsWith('Rozwój'))) ? category : subject;
-                                
-                                if (grade && grade !== 'Brak ocen') {
+                                // Only use nested grades for primary school (Edukacja X, Rozwój)
+                                // For middle/high school, nested grades are duplicates of span.grade-box
+                                if (grade && grade !== 'Brak ocen' && category && (category.startsWith('Edukacja') || category.startsWith('Rozwój'))) {
                                     hasNestedGrades = true;
                                     data.grades.push({
-                                        subject: gradeSubject,
+                                        subject: category,
                                         grade,
                                         date: date || "",
                                         category: "",
