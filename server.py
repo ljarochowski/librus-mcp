@@ -627,6 +627,12 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             subjects = {}
             for grade in all_grades:
                 subject = grade.get('subject', 'Unknown')
+                category = grade.get('category', '').lower()
+                
+                # Skip semester/final grades - only analyze current grades
+                if any(x in category for x in ['śródroczn', 'roczn', 'końcow']):
+                    continue
+                
                 if subject not in subjects:
                     subjects[subject] = []
                 
