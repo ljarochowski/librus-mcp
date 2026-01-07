@@ -380,7 +380,7 @@ async def list_tools() -> list[Tool]:
                     "output_path": {
                         "type": "string",
                         "description": "Path where to save PDF file",
-                        "default": "~/Desktop/raport_rodzinny.pdf"
+                        "default": "~/Desktop/family_report.pdf"
                     }
                 },
                 "required": ["content"]
@@ -667,7 +667,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     
     elif name == "generate_pdf_report":
         content = arguments.get("content", "")
-        output_path = arguments.get("output_path", "~/Desktop/raport_rodzinny.pdf")
+        output_path = arguments.get("output_path", "~/Desktop/family_report.pdf")
         
         # Expand ~ to home directory
         from pathlib import Path
