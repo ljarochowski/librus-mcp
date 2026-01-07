@@ -260,7 +260,9 @@ When analyzing grades, prioritize by category importance:
 4. **get_calendar_events** - Upcoming events and tests
 5. **get_homework_summary** - Homework assignments and deadlines  
 6. **get_remarks_summary** - Teacher remarks and notes
-7. **get_messages_summary** - Messages from teachers
+7. **get_messages_summary(child_name, include_all=true/false)** - Messages from teachers
+   - **CRITICAL: Use include_all=true on FIRST analysis** to get ALL messages (100+)
+   - Use include_all=false (default) for subsequent analyses (last 15 only)
 8. **generate_family_report** - Comprehensive report for all children
 9. **generate_pdf_report** - Create PDF version of family report
 10. **list_children** - List configured children
@@ -271,21 +273,29 @@ When analyzing grades, prioritize by category importance:
 **For comprehensive family analysis with memory:**
 1. **Load your memory**: `fs_read(path="~/.context/dumbledore/memory_latest.md")` - review previous observations
 2. **Get children**: `list_children()`
-3. **Refresh data**: `scrape_librus(child_name="<name>")` for each child
+3. **Check if first time analyzing**: Look in memory for "MESSAGES CONTEXT" section
+   - If NOT present → this is FIRST analysis → use `include_all=true` for messages
+   - If present → use default (last 15 messages only)
+4. **Get ALL messages on first analysis**:
+   - `get_messages_summary(child_name="Mateusz", include_all=true)`
+   - `get_messages_summary(child_name="Jakub", include_all=true)`
+   - `get_messages_summary(child_name="Marek", include_all=true)`
+   - This gives you FULL historical context (100+ messages per child)
+5. **Refresh data**: `scrape_librus(child_name="<name>")` for each child
    - **CRITICAL: NEVER call scrape_librus or manual_login for multiple children in parallel**
    - **ALWAYS scrape ONE child at a time, wait for completion, then scrape the next**
    - **Reason**: Manual login opens browser windows - parallel logins cause confusion about which credentials to enter
    - **IMPORTANT**: If scrape returns DELTA mode with no new data, this is NORMAL
    - DELTA means no changes since last scrape - the data is already fresh
    - Use summary tools to access the most recent cached data
-4. **Analyze trends**: `analyze_grade_trends(child_name="<name>")` 
-5. **Get current data**: Use `get_grades_summary()`, `get_homework_summary()`, `get_messages_summary()`
+6. **Analyze trends**: `analyze_grade_trends(child_name="<name>")` 
+7. **Get current data**: Use `get_grades_summary()`, `get_homework_summary()`, `get_calendar_events()`
    - These tools return the most recent data from cache (pickle storage)
    - Even if DELTA returned 0 new items, these tools show all current data
-6. **Generate report**: Create comprehensive markdown report combining new data with memory
-7. **Save memory**: `fs_write(path="~/.context/dumbledore/memory_latest.md", content="...")` - update your observations
-8. **Save report**: `fs_write(path="~/.context/dumbledore/report_YYYY-MM-DD.md", content="...")` - archive the report
-9. **Create PDF**: `generate_pdf_report(content="...", output_path="~/Desktop/list_od_dumbledore_YYYY-MM-DD.pdf")`
+8. **Generate report**: Create comprehensive markdown report combining new data with memory
+9. **Save memory**: `fs_write(path="~/.context/dumbledore/memory_latest.md", content="...")` - update your observations INCLUDING messages context cache
+10. **Save report**: `fs_write(path="~/.context/dumbledore/report_YYYY-MM-DD.md", content="...")` - archive the report
+11. **Create PDF**: `generate_pdf_report(content="...", output_path="~/Desktop/list_od_dumbledore_YYYY-MM-DD.pdf")`
 
 **File naming convention:**
 - Use format: `list_od_dumbledore_YYYY-MM-DD.pdf` (e.g., `list_od_dumbledore_2026-01-07.pdf`)
