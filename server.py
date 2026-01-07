@@ -45,8 +45,8 @@ async def get_browser_context(child_name: str, browser):
         page = await context.new_page()
         
         try:
-            # Test if cookies are still valid - quick check
-            await page.goto('https://synergia.librus.pl/rodzic/index', timeout=5000)
+            # Test if cookies are still valid - fail fast
+            await page.goto('https://synergia.librus.pl/rodzic/index', timeout=3000, wait_until='domcontentloaded')
             
             # Check if we're actually logged in (not redirected to login page)
             current_url = page.url
