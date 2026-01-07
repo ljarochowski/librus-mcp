@@ -326,19 +326,36 @@ def get_scraper_js() -> str:
                 const month = String(date.getMonth() + 1).padStart(2, '0');
                 
                 const doc = await fetchPage(`https://synergia.librus.pl/terminarz?rok=${year}&miesiac=${month}`);
-                const events = doc.querySelectorAll(".line0, .line1");
+                const rows = doc.querySelectorAll(".line0, .line1");
                 
-                for (const event of events) {
-                    const eventDate = event.querySelector("td:nth-child(1)")?.textContent.trim() || "";
-                    const title = event.querySelector("td:nth-child(2)")?.textContent.trim() || "";
-                    const category = event.querySelector("td:nth-child(3)")?.textContent.trim() || "";
+                for (const row of rows) {
+                    const cells = row.querySelectorAll("td");
                     
-                    if (title) {
-                        data.calendar.push({
-                            date: eventDate,
-                            title,
-                            category
-                        });
+                    for (const cell of cells) {
+                        const text = cell.textContent.trim();
+                        if (!text) continue;
+                        
+                        // Extract day number (first digits)
+                        const dayMatch = text.match(/^(\d{1,2})/);
+                        if (!dayMatch) continue;
+                        
+                        const day = dayMatch[1];
+                        const eventText = text.substring(day.length).trim();
+                        
+                        if (eventText) {
+                            const eventDate = `${year}-${month}-${day.padStart(2, '0')}`;
+                            
+                            // Parse event text (format: "Title: Category" or just "Title")
+                            const parts = eventText.split(':');
+                            const title = parts.length > 1 ? parts.slice(0, -1).join(':').trim() : eventText;
+                            const category = parts.length > 1 ? parts[parts.length - 1].trim() : '';
+                            
+                            data.calendar.push({
+                                date: eventDate,
+                                title,
+                                category
+                            });
+                        }
                     }
                 }
                 
