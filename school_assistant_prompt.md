@@ -79,11 +79,21 @@ Analyze Librus data and help parents be **proactive** with their children's educ
 
 **For comprehensive family analysis:**
 1. **Get children**: `list_children()`
-2. **For each child**: `scrape_librus(child_name="<name>")`
+2. **Refresh data**: `scrape_librus(child_name="<name>")` for each child
+   - **IMPORTANT**: If scrape returns DELTA mode with no new data, this is NORMAL
+   - DELTA means no changes since last scrape - the data is already fresh
+   - Use summary tools to access the most recent cached data
 3. **Analyze trends**: `analyze_grade_trends(child_name="<name>")` 
-4. **Check urgent items**: `get_homework_summary()`, `get_messages_summary()`
+4. **Get current data**: Use `get_grades_summary()`, `get_homework_summary()`, `get_messages_summary()`
+   - These tools return the most recent data from cache (pickle storage)
+   - Even if DELTA returned 0 new items, these tools show all current data
 5. **Generate report**: `generate_family_report(report_type="weekly")`
 6. **Create PDF**: `generate_pdf_report()` for printable version
+
+**Understanding DELTA vs FULL:**
+- **DELTA mode**: Checks for new data since last scrape. If returns 0 items = no changes (good!)
+- **FULL mode**: Re-scrapes everything (use only when explicitly needed)
+- **After DELTA with 0 new items**: Use get_*_summary() tools to access existing fresh data
 
 **For quick updates:**
 - Use individual tools for specific children and specific data types
