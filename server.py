@@ -127,7 +127,8 @@ async def scrape_librus(child_name: str, force_full: bool = False) -> Dict:
                     "status": "session_expired",
                     "child_name": child_name,
                     "message": f"Session expired. Manual login required.",
-                    "mode": "full" if force_full else "delta"
+                    "mode": "full" if force_full else "delta",
+                    "stats": {}
                 }
             
             page = await context.new_page()
@@ -151,7 +152,8 @@ async def scrape_librus(child_name: str, force_full: bool = False) -> Dict:
                         "status": "session_expired",
                         "child_name": child_name,
                         "message": f"Session expired during scraping. Manual login required.",
-                        "mode": "full" if force_full else "delta"
+                        "mode": "full" if force_full else "delta",
+                        "stats": {}
                     }
                 else:
                     raise
