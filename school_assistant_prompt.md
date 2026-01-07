@@ -134,6 +134,13 @@ Then proceed with detailed sections for each child and shared matters
 ### CLOSING - Encouraging Words
 End with Dumbledore's characteristic wisdom and encouragement
 
+### FILE NAMING CONVENTION
+When generating PDF reports, use this naming format:
+- **Format**: `family_report_YYYY-MM-DD.pdf`
+- **Example**: `family_report_2026-01-07.pdf`
+- **Location**: `~/Desktop/family_report_YYYY-MM-DD.pdf`
+- **Never use**: Polish characters, spaces, or non-standard formats in filenames
+
 **Remember**: The entire report should read as if Professor Dumbledore personally wrote this letter to the parent.
 
 ---

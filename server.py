@@ -687,15 +687,25 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             from reportlab.lib.colors import HexColor
             import re
             
-            # Register Polish font
+            # Register Polish font - try multiple options
+            font_name = 'Helvetica'
+            font_bold = 'Helvetica-Bold'
+            
             try:
-                pdfmetrics.registerFont(TTFont('DejaVuSans', '/System/Library/Fonts/Supplemental/DejaVuSans.ttf'))
-                pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', '/System/Library/Fonts/Supplemental/DejaVuSans-Bold.ttf'))
-                font_name = 'DejaVuSans'
-                font_bold = 'DejaVuSans-Bold'
+                # Try Arial Unicode MS (supports Polish)
+                pdfmetrics.registerFont(TTFont('ArialUnicode', '/System/Library/Fonts/ArialHB.ttc', subfontIndex=0))
+                pdfmetrics.registerFont(TTFont('ArialUnicode-Bold', '/System/Library/Fonts/ArialHB.ttc', subfontIndex=1))
+                font_name = 'ArialUnicode'
+                font_bold = 'ArialUnicode-Bold'
             except:
-                font_name = 'Helvetica'
-                font_bold = 'Helvetica-Bold'
+                try:
+                    # Fallback to Helvetica with UTF-8 encoding
+                    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+                    pdfmetrics.registerFont(UnicodeCIDFont('HeiseiMin-W3'))
+                    font_name = 'HeiseiMin-W3'
+                    font_bold = 'HeiseiMin-W3'
+                except:
+                    pass
             
             # Create PDF with margins
             doc = SimpleDocTemplate(
