@@ -45,24 +45,28 @@ async def get_browser_context(child_name: str, browser):
         page = await context.new_page()
         
         try:
-            # Test if cookies are still valid
-            await page.goto('https://synergia.librus.pl/rodzic/index', timeout=config.page_timeout_ms)
+            # Test if cookies are still valid - quick check
+            await page.goto('https://synergia.librus.pl/rodzic/index', timeout=5000)
             
             # Check if we're actually logged in (not redirected to login page)
             current_url = page.url
             if '/loguj' in current_url or '/login' in current_url:
-                print(f"{Colors.YELLOW}Session expired, need to log in again{Colors.ENDC}")
+                print(f"{Colors.YELLOW}Session expired{Colors.ENDC}")
+                await page.close()
                 await context.close()
-                # Delete invalid cookies
                 cookies_file.unlink()
+                return None
             else:
                 print(f"{Colors.GREEN}Auto-login successful{Colors.ENDC}")
+                await page.close()
                 return context
                 
         except Exception as e:
             print(f"{Colors.YELLOW}Auto-login failed: {e}{Colors.ENDC}")
+            await page.close()
             await context.close()
             cookies_file.unlink()
+            return None
     
     # Manual login required
     print(f"{Colors.YELLOW}[{child_name}] Manual login required{Colors.ENDC}")
@@ -127,6 +131,19 @@ async def scrape_librus(child_name: str, force_full: bool = False) -> Dict:
             print(f"{Colors.BLUE}Launching browser...{Colors.ENDC}")
             browser = await p.webkit.launch(headless=headless)
             context = await get_browser_context(child_name, browser)
+            
+            if context is None:
+                await browser.close()
+                print(f"\n{Colors.BOLD}{Colors.RED}Session expired for {child_name}{Colors.ENDC}")
+                print(f"{Colors.YELLOW}Use manual_login tool to refresh login session.{Colors.ENDC}\n")
+                
+                return {
+                    "status": "session_expired",
+                    "child_name": child_name,
+                    "message": f"Session expired. Manual login required.",
+                    "mode": "full" if force_full else "delta"
+                }
+            
             page = await context.new_page()
             
             print(f"{Colors.BLUE}Navigating to Librus...{Colors.ENDC}")
@@ -164,19 +181,8 @@ async def scrape_librus(child_name: str, force_full: bool = False) -> Dict:
             }
             
     except Exception as e:
-        error_msg = str(e)
-        
-        # Check if it's a login/timeout issue
-        if "Timeout" in error_msg or "timeout" in error_msg:
-            # Remove stale cookies
-            context_dir = get_context_dir(child_name)
-            cookies_file = context_dir / "cookies.json"
-            if cookies_file.exists():
-                cookies_file.unlink()
-                
-            raise Exception(f"Session expired for {child_name}. Use manual_login(child_name='{child_name}') to refresh login session first.")
-        else:
-            raise e
+        print(f"\n{Colors.BOLD}{Colors.RED}Error: {str(e)}{Colors.ENDC}\n")
+        raise e
 
 
 # ============================================================================
