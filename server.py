@@ -1088,24 +1088,24 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             print(f"{Colors.YELLOW}Please log in as parent for {child_name} and close browser when done.{Colors.ENDC}\n")
             
             # Do a minimal login-only scrape
-            browser = await async_playwright().start()
-            browser = await browser.chromium.launch(headless=False)  # Always visible for manual login
-            
-            context = await browser.new_context()
-            page = await context.new_page()
-            
-            await page.goto('https://portal.librus.pl/rodzina/synergia/loguj')
-            print(f"{Colors.YELLOW}Waiting for login for {child_name}...{Colors.ENDC}")
-            
-            # Wait for successful login
-            await page.wait_for_url(lambda url: '/rodzic' in url, timeout=300000)  # 5 min timeout
-            print(f"{Colors.GREEN}Login successful for {child_name}!{Colors.ENDC}")
-            
-            # Save cookies
-            await context.storage_state(path=str(cookies_file))
-            
-            await context.close()
-            await browser.close()
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=False)
+                
+                context = await browser.new_context()
+                page = await context.new_page()
+                
+                await page.goto('https://portal.librus.pl/rodzina/synergia/loguj')
+                print(f"{Colors.YELLOW}Waiting for login for {child_name}...{Colors.ENDC}")
+                
+                # Wait for successful login
+                await page.wait_for_url(lambda url: '/rodzic' in url, timeout=300000)  # 5 min timeout
+                print(f"{Colors.GREEN}Login successful for {child_name}!{Colors.ENDC}")
+                
+                # Save cookies
+                await context.storage_state(path=str(cookies_file))
+                
+                await context.close()
+                await browser.close()
             
             return [TextContent(type="text", text=f"Manual login completed for {child_name}. Session saved. You can now scrape data.")]
         except Exception as e:
