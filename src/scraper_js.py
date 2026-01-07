@@ -247,7 +247,8 @@ def get_scraper_js() -> str:
                                 const category = gradeCells[2]?.textContent.trim();
                                 const date = gradeCells[4]?.textContent.trim();
                                 
-                                if (grade && grade !== 'Brak ocen' && category && (category.startsWith('Edukacja') || category.startsWith('Rozwój'))) {
+                                // Accept all subjects (primary school has "Edukacja X", middle/high school has regular subjects)
+                                if (grade && grade !== 'Brak ocen' && category) {
                                     hasNestedGrades = true;
                                     data.grades.push({
                                         subject: category,
@@ -310,8 +311,10 @@ def get_scraper_js() -> str:
                     }
                 }
             }
+            console.log(`Grades: ${data.grades.length}`);
         } catch (e) {
             console.error("Error fetching grades:", e.message);
+            console.error("Stack:", e.stack);
         }
         
         // ====== 4. CALENDAR ======
