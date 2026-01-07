@@ -33,6 +33,15 @@ async def scrape_homework(page, last_scrape: Optional[str] = None) -> List[Dict]
         date_to = month_end.strftime('%Y-%m-%d')
         
         await page.goto('https://synergia.librus.pl/moje_zadania')
+        
+        # Wait for form to load
+        try:
+            await page.wait_for_selector('#dateFrom', timeout=5000)
+        except:
+            # No homework form - skip this month
+            current = month_end + timedelta(days=1)
+            continue
+        
         await page.fill('#dateFrom', date_from)
         await page.fill('#dateTo', date_to)
         await page.click('input[name="submitFiltr"]')
