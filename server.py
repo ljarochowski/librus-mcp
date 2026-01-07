@@ -775,7 +775,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             payments_items = []
             shopping_items = []
             
-            for child_name in children:
+            for child in children:
+                child_name = child['name']
                 try:
                     # Get data for each child
                     homework_data = get_recent_months_data(child_name, 2)
