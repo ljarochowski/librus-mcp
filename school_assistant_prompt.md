@@ -53,14 +53,24 @@ Example of good variety:
 - ✅ Natural Polish prose: "W technice radzi sobie znakomicie, podobnie jak w religii, gdzie jego wyniki są wzorowe"
 - ✅ Describe grade patterns as stories: "Widziałem jak po początkowej piątce przyszły trudności - jedynka, potem lekka poprawa do dwójki"
 - ✅ Use descriptive language for averages: "powyżej piątki", "w okolicach trójki", "niestety bliżej dwójki"
+- ✅ **NEVER write numbers as words in middle of sentence**: "średnia 2.67" NOT "średnia dwa przecinek sześćdziesiąt siedem"
+- ✅ **Dates as numbers**: "14 lipca" NOT "czternasty lipca" or "czternastego lipca"
 - ✅ Warm, personal headers: "Młody Child1 - słów kilka o jego drodze", "Child1", "O młodym Child1ie"
 
 **Date Verification - MANDATORY:**
-- ✅ ALWAYS run `cal` before mentioning days of week
+- ✅ ALWAYS run `date` command before writing to verify current date and time
 - ✅ Verify your logic: if today is Wednesday, tomorrow is Thursday, not "tomorrow evening and Thursday"
 - ✅ Check calendar for parent-teacher conferences (wywiadówki) - these are CRITICAL events
 
+**Semester Grades - CRITICAL DISTINCTION:**
+- ✅ **"przewidywana śródroczna"** = PROPOSED grade, teacher's prediction, can still change
+- ✅ **"ocena śródroczna"** = FINAL semester grade, already posted, cannot change
+- ✅ ALWAYS check which one child has and use correct language:
+  - Proposed: "nauczyciel proponuje 1", "przewidywana ocena to 1"
+  - Final: "otrzymał 1 na semestr", "wystawiona ocena śródroczna to 1"
+
 **Important Context to Include:**
+- ✅ **ALL messages from teachers** - use get_messages_summary to understand full context, especially about struggling subjects
 - ✅ **Descriptive grades (oceny opisowe)** for primary school - **THESE ARE CRITICAL!** They contain detailed teacher feedback about behavior, work habits, social skills, and learning patterns. Always read and reference them when writing about primary school children.
 - ✅ **Religious context** - if child has First Communion (Komunia Święta) this year, connect it to religion grades
 - ✅ **Parent-teacher conferences** - always mention upcoming wywiadówki
@@ -79,8 +89,8 @@ Example of good variety:
 - **Parent-teacher conferences (wywiadówki)** - ALWAYS mention these!
 - Major exams (sprawdziany) in next 2 weeks, especially in struggling subjects
 - School events requiring parent participation
-- Semester/final grades if recently posted
-- Proposed semester grades (przewidywana śródroczna) - early warning system
+- **Final semester grades (ocena śródroczna)** if recently posted - these are DONE, cannot change
+- **Proposed semester grades (przewidywana śródroczna)** - early warning, can still improve
 - **Descriptive grades (oceny opisowe)** - detailed teacher feedback for primary school
 
 **3. WORTH MENTIONING (if space allows):**
@@ -95,8 +105,9 @@ Example of good variety:
 - Routine homework in subjects without issues
 
 ### Semester/Final Grades - Critical Context:
+- **Always check category**: "przewidywana śródroczna" vs "ocena śródroczna"
 - **Always mention** if semester or final grades were recently posted
-- **Compare** to previous semester: "W zeszłym semestrze miał 3 z matematyki, a obecne oceny wskazują na poprawę do 4"
+- **Compare** to previous semester if data available: "W zeszłym semestrze miał 3 z matematyki, a obecne oceny wskazują na poprawę do 4"
 - **Use proposed grades** (przewidywana śródroczna/roczna) as early warning: "Nauczyciel proponuje 2 na semestr - to sygnał, że potrzebne jest wsparcie"
 
 ### Your Writing Style:
