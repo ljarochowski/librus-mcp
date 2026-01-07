@@ -271,14 +271,38 @@ def get_scraper_js() -> str:
                             const gradeLinks = gradeCell.querySelectorAll('a.ocena');
                             for (const link of gradeLinks) {
                                 const grade = link.textContent.trim();
+                                const title = link.getAttribute('title') || '';
+                                
+                                // Parse title for category, date, teacher
+                                let category = '';
+                                let date = '';
+                                let teacher = '';
+                                let comment = '';
+                                
+                                if (title) {
+                                    const lines = title.split('<br>').map(l => l.replace('<br/>', '').trim());
+                                    for (const line of lines) {
+                                        if (line.startsWith('Kategoria:')) {
+                                            category = line.substring(10).trim();
+                                        } else if (line.startsWith('Data:')) {
+                                            date = line.substring(5).trim().split(' ')[0]; // Extract YYYY-MM-DD
+                                        } else if (line.startsWith('Nauczyciel:')) {
+                                            teacher = line.substring(11).trim();
+                                        } else if (line.startsWith('Komentarz:')) {
+                                            comment = line.substring(10).trim();
+                                        }
+                                    }
+                                }
+                                
                                 if (grade) {
                                     data.grades.push({
                                         subject,
                                         grade,
-                                        date: "",
-                                        category: "",
+                                        date,
+                                        category,
                                         weight: "",
-                                        teacher: ""
+                                        teacher,
+                                        comment
                                     });
                                 }
                             }
