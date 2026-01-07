@@ -687,24 +687,28 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             from reportlab.lib.colors import HexColor
             import re
             
-            # Register Polish font - try multiple options
+            # Register Polish font - use UTF-8 encoding
+            from reportlab.pdfbase.pdfmetrics import registerFontFamily
+            
             font_name = 'Helvetica'
             font_bold = 'Helvetica-Bold'
             
+            # Try to use system fonts that support Polish
             try:
-                # Try Arial Unicode MS (supports Polish)
-                pdfmetrics.registerFont(TTFont('ArialUnicode', '/System/Library/Fonts/ArialHB.ttc', subfontIndex=0))
-                pdfmetrics.registerFont(TTFont('ArialUnicode-Bold', '/System/Library/Fonts/ArialHB.ttc', subfontIndex=1))
-                font_name = 'ArialUnicode'
-                font_bold = 'ArialUnicode-Bold'
+                # Try Times New Roman (usually has Polish support)
+                pdfmetrics.registerFont(TTFont('TimesNewRoman', '/System/Library/Fonts/Supplemental/Times New Roman.ttf'))
+                pdfmetrics.registerFont(TTFont('TimesNewRoman-Bold', '/System/Library/Fonts/Supplemental/Times New Roman Bold.ttf'))
+                font_name = 'TimesNewRoman'
+                font_bold = 'TimesNewRoman-Bold'
             except:
                 try:
-                    # Fallback to Helvetica with UTF-8 encoding
-                    from reportlab.pdfbase.cidfonts import UnicodeCIDFont
-                    pdfmetrics.registerFont(UnicodeCIDFont('HeiseiMin-W3'))
-                    font_name = 'HeiseiMin-W3'
-                    font_bold = 'HeiseiMin-W3'
+                    # Try Verdana
+                    pdfmetrics.registerFont(TTFont('Verdana', '/System/Library/Fonts/Supplemental/Verdana.ttf'))
+                    pdfmetrics.registerFont(TTFont('Verdana-Bold', '/System/Library/Fonts/Supplemental/Verdana Bold.ttf'))
+                    font_name = 'Verdana'
+                    font_bold = 'Verdana-Bold'
                 except:
+                    # Last resort - use Helvetica but ensure UTF-8
                     pass
             
             # Create PDF with margins
