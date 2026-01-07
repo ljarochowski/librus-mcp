@@ -252,3 +252,13 @@ This tool is for personal use only. Ensure you comply with Librus terms of servi
 ## Support
 
 For issues, questions, or contributions, please open an issue on GitHub.
+
+## Known Issues & TODOs
+
+### Upcoming Changes
+- **New Librus Messages Module**: Librus is transitioning to a new messages module. The scraper will need to be updated to support the new interface when it becomes mandatory.
+
+### Current Limitations
+- Messages scraping uses the current Librus interface (may change in future)
+- Calendar parsing assumes grid layout (may vary by school configuration)
+

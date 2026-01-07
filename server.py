@@ -89,8 +89,18 @@ async def scrape_librus(child_name: str, force_full: bool = False) -> Dict:
     """
     try:
         state = load_state(child_name)
-        last_scrape = state.get("last_scrape_iso")
-        is_first = last_scrape is None or force_full
+        last_scrape_raw = state.get("last_scrape_iso")
+        is_first = last_scrape_raw is None or force_full
+        
+        # For DELTA mode: go back to 23:59:59 of the day before last scrape
+        # This ensures we capture all data from the day of last scrape
+        last_scrape = None
+        if not is_first and last_scrape_raw:
+            from datetime import datetime, timedelta
+            last_dt = datetime.strptime(last_scrape_raw, "%Y-%m-%d %H:%M:%S")
+            # Go back to previous day at 23:59:59
+            delta_start = (last_dt.date() - timedelta(days=1))
+            last_scrape = f"{delta_start} 23:59:59"
         
         mode = "FULL" if is_first else f"DELTA since {last_scrape}"
         

@@ -91,15 +91,48 @@ def save_monthly_data(child_name: str, year: int, month: int, data: Dict) -> Non
         with open(monthly_file, 'rb') as f:
             existing = pickle.load(f)
         
-        # Merge rawData arrays
+        # Merge rawData arrays with deduplication
         if 'data' in existing and 'data' in data:
             existing_raw = existing['data'].get('rawData', {})
             new_raw = data['data'].get('rawData', {})
             
-            # Merge arrays (messages, announcements, grades, calendar)
+            # Merge arrays (messages, announcements, grades, calendar) with deduplication
             for key in ['messages', 'announcements', 'grades', 'calendar']:
                 if key in new_raw and new_raw[key]:
-                    existing_raw[key] = existing_raw.get(key, []) + new_raw[key]
+                    existing_items = existing_raw.get(key, [])
+                    new_items = new_raw[key]
+                    
+                    # Deduplicate based on content
+                    # Create set of existing item signatures
+                    existing_sigs = set()
+                    for item in existing_items:
+                        # Create signature from key fields
+                        if key == 'grades':
+                            sig = f"{item.get('subject')}_{item.get('grade')}_{item.get('date')}_{item.get('category')}"
+                        elif key == 'messages':
+                            sig = f"{item.get('date')}_{item.get('sender')}_{item.get('subject')}"
+                        elif key == 'calendar':
+                            sig = f"{item.get('date')}_{item.get('title')}_{item.get('category')}"
+                        else:  # announcements
+                            sig = f"{item.get('date')}_{item.get('title')}"
+                        existing_sigs.add(sig)
+                    
+                    # Add only new items
+                    for item in new_items:
+                        if key == 'grades':
+                            sig = f"{item.get('subject')}_{item.get('grade')}_{item.get('date')}_{item.get('category')}"
+                        elif key == 'messages':
+                            sig = f"{item.get('date')}_{item.get('sender')}_{item.get('subject')}"
+                        elif key == 'calendar':
+                            sig = f"{item.get('date')}_{item.get('title')}_{item.get('category')}"
+                        else:  # announcements
+                            sig = f"{item.get('date')}_{item.get('title')}"
+                        
+                        if sig not in existing_sigs:
+                            existing_items.append(item)
+                            existing_sigs.add(sig)
+                    
+                    existing_raw[key] = existing_items
             
             # Update timestamp
             existing['timestamp'] = data['timestamp']
