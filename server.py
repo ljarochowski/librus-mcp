@@ -369,15 +369,13 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="generate_pdf_report",
-            description="Generate PDF family report and save to file",
+            description="Generate PDF report from markdown content and save to file",
             inputSchema={
                 "type": "object",
                 "properties": {
-                    "report_type": {
+                    "content": {
                         "type": "string",
-                        "enum": ["weekly", "monthly"],
-                        "description": "Type of report to generate",
-                        "default": "weekly"
+                        "description": "Markdown content to convert to PDF"
                     },
                     "output_path": {
                         "type": "string",
@@ -385,28 +383,7 @@ async def list_tools() -> list[Tool]:
                         "default": "/Users/ljarochowski/Desktop/raport_rodzinny.pdf"
                     }
                 },
-                "required": []
-            }
-        ),
-        Tool(
-            name="generate_pdf_report",
-            description="Generate PDF family report and save to file",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "report_type": {
-                        "type": "string",
-                        "enum": ["weekly", "monthly"],
-                        "description": "Type of report to generate",
-                        "default": "weekly"
-                    },
-                    "filename": {
-                        "type": "string",
-                        "description": "Filename for PDF (will be saved to current directory)",
-                        "default": "family_report.pdf"
-                    }
-                },
-                "required": []
+                "required": ["content"]
             }
         ),
         Tool(
@@ -689,17 +666,80 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             return [TextContent(type="text", text=f"Error analyzing trends: {str(e)}")]
     
     elif name == "generate_pdf_report":
-        report_type = arguments.get("report_type", "weekly")
-        filename = arguments.get("filename", "raport_rodzinny.pdf")
+        content = arguments.get("content", "")
+        output_path = arguments.get("output_path", "/Users/ljarochowski/Desktop/raport_rodzinny.pdf")
+        
+        if not content:
+            return [TextContent(type="text", text="Error: No content provided for PDF generation")]
+        
         try:
-            # First generate the text report
-            text_report_result = await call_tool("generate_family_report", {"report_type": report_type})
-            text_report = text_report_result[0].text if text_report_result else "Error generating report"
+            from reportlab.lib.pagesizes import A4
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import inch
+            from reportlab.pdfbase import pdfmetrics
+            from reportlab.pdfbase.ttfonts import TTFont
+            import re
             
-            # Try to create PDF using reportlab
-            try:
-                from reportlab.lib.pagesizes import A4
-                from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+            # Create PDF
+            doc = SimpleDocTemplate(output_path, pagesize=A4)
+            styles = getSampleStyleSheet()
+            story = []
+            
+            # Custom styles
+            title_style = ParagraphStyle(
+                'CustomTitle',
+                parent=styles['Heading1'],
+                fontSize=16,
+                spaceAfter=20,
+            )
+            
+            heading_style = ParagraphStyle(
+                'CustomHeading',
+                parent=styles['Heading2'],
+                fontSize=14,
+                spaceAfter=12,
+            )
+            
+            normal_style = ParagraphStyle(
+                'CustomNormal',
+                parent=styles['Normal'],
+                fontSize=10,
+                spaceAfter=6,
+            )
+            
+            # Parse markdown content
+            lines = content.split('\n')
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    story.append(Spacer(1, 0.1*inch))
+                    continue
+                
+                # Headers
+                if line.startswith('# '):
+                    story.append(Paragraph(line[2:], title_style))
+                elif line.startswith('## '):
+                    story.append(Paragraph(line[3:], heading_style))
+                elif line.startswith('### '):
+                    story.append(Paragraph(line[4:], heading_style))
+                # Lists
+                elif line.startswith('- ') or line.startswith('* '):
+                    story.append(Paragraph('• ' + line[2:], normal_style))
+                # Bold
+                elif '**' in line:
+                    line = line.replace('**', '<b>').replace('**', '</b>')
+                    story.append(Paragraph(line, normal_style))
+                # Normal text
+                else:
+                    story.append(Paragraph(line, normal_style))
+            
+            doc.build(story)
+            
+            return [TextContent(type="text", text=f"PDF report generated successfully: {output_path}")]
+            
+        except Exception as e:
+            return [TextContent(type="text", text=f"Error generating PDF: {str(e)}")]
                 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
                 from reportlab.lib.units import inch
                 from reportlab.pdfbase import pdfmetrics
