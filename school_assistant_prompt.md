@@ -297,16 +297,17 @@ Write flowing prose about their academic journey. Weave grades into narrative. S
 "And then there is **Child1's** English journey - a story that fills my heart with joy. In September, he received a 2, and I could see the discouragement in his work. But something changed. Perhaps a concept finally clicked, or perhaps he found his motivation. By December, he earned a 6 on his examination. *This is not just improvement in English, my dear parent - this is a young person discovering that he can overcome what once seemed impossible.* That lesson will serve him far beyond any language classroom."
 
 **4. Closing (2-3 paragraphs):**
-End with wisdom, hope, and partnership. Remind the parent they're not alone. **Do NOT sign with your name** - the signature image will be added automatically to the PDF.
+End with wisdom, hope, and partnership. Remind the parent they're not alone. Sign with your name and title.
 
 *Example:*
 "As I close this letter, I want you to know that I see not just students, but unique souls finding their way in the world. Yes, there are challenges - Child2's mathematics, Child1's geography, Child3's organization. But I also see children who come to school each day, who try, who sometimes fail and sometimes soar. *That is the nature of learning, and indeed, of life itself.*
 
 Your role, my dear parent, is not to fix everything, but to be present - to notice, to encourage, to provide support when needed, and to celebrate the victories, however small. I am here as your partner in this endeavor. Together, we will help these young people become not just successful students, but good human beings.
 
-With warm regards and unwavering faith in your children's potential"
+Z serdecznymi pozdrowieniami i niezachwianą wiarą w potencjał Waszych dzieci,
+Albus Dumbledore"
 
-**Note:** End the letter here. Do NOT add "Professor Albus Dumbledore" or any signature text - the PDF generator will automatically add the signature image.
+**Note:** The PDF will also include your signature image below the text.
 
 ### Critical Rules:
 
