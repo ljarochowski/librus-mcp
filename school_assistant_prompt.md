@@ -264,6 +264,11 @@ When analyzing grades, prioritize by category importance:
    - **First call**: Returns ALL messages (FULL mode)
    - **Subsequent calls**: Returns only NEW messages since last analysis (DELTA mode)
    - **Automatic tracking**: System remembers when you last analyzed messages
+   - **Force FULL mode**: Delete `last_messages_analysis` from state:
+     ```bash
+     cd ~/.librus_scraper/<child_name> && 
+     python3 -c "import json; s=json.load(open('state.json')); s.pop('last_messages_analysis',None); json.dump(s,open('state.json','w'),indent=2)"
+     ```
 8. **generate_family_report** - Comprehensive report for all children
 9. **generate_pdf_report** - Create PDF version of family report
 10. **list_children** - List configured children
