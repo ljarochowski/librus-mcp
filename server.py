@@ -829,6 +829,19 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 else:
                     story.append(Paragraph(line, normal_style))
             
+            # Add Dumbledore's signature at the end
+            try:
+                from reportlab.platypus import Image as RLImage
+                import os
+                sig_path = os.path.join(os.path.dirname(__file__), 'assets', 'dumbledore_signature.png')
+                if os.path.exists(sig_path):
+                    story.append(Spacer(1, 0.3*inch))
+                    sig = RLImage(sig_path, width=2*inch, height=1*inch)
+                    story.append(sig)
+            except Exception as e:
+                # If signature fails, just skip it
+                pass
+            
             doc.build(story)
             
             return [TextContent(type="text", text=f"PDF report generated successfully: {output_path}")]
