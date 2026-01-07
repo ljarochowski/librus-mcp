@@ -271,48 +271,39 @@ def get_scraper_js() -> str:
                         }
                     }
                     
-                    // Parse semester/midterm grades (columns 3, 4, 5)
-                    // Column 3: Semester 1, Column 4: Semester 2, Column 5: Final
-                    if (cells.length >= 4) {
-                        const sem1Cell = cells[3];
-                        const sem1Grade = sem1Cell?.textContent.trim();
-                        if (sem1Grade && sem1Grade !== '-' && sem1Grade !== '') {
-                            data.grades.push({
-                                subject,
-                                grade: sem1Grade,
-                                date: "",
-                                category: "przewidywana śródroczna",
-                                weight: "",
-                                teacher: ""
-                            });
-                        }
-                    }
-                    if (cells.length >= 5) {
-                        const sem2Cell = cells[4];
-                        const sem2Grade = sem2Cell?.textContent.trim();
-                        if (sem2Grade && sem2Grade !== '-' && sem2Grade !== '') {
-                            data.grades.push({
-                                subject,
-                                grade: sem2Grade,
-                                date: "",
-                                category: "przewidywana roczna",
-                                weight: "",
-                                teacher: ""
-                            });
-                        }
-                    }
-                    if (cells.length >= 6) {
-                        const finalCell = cells[5];
-                        const finalGrade = finalCell?.textContent.trim();
-                        if (finalGrade && finalGrade !== '-' && finalGrade !== '') {
-                            data.grades.push({
-                                subject,
-                                grade: finalGrade,
-                                date: "",
-                                category: "ocena końcowa",
-                                weight: "",
-                                teacher: ""
-                            });
+                    // Parse semester/midterm grades from correct columns
+                    // These are also a.ocena elements, not plain text
+                    // Column 4: (I) - przewidywana śródroczna
+                    // Column 5: I - ocena śródroczna  
+                    // Column 7: (II) - przewidywana roczna
+                    // Column 8: II - ocena roczna
+                    // Column 9: Ocena końcowa
+                    
+                    const semesterColumns = [
+                        { index: 4, category: "przewidywana śródroczna" },
+                        { index: 5, category: "ocena śródroczna" },
+                        { index: 7, category: "przewidywana roczna" },
+                        { index: 8, category: "ocena roczna" },
+                        { index: 9, category: "ocena końcowa" }
+                    ];
+                    
+                    for (const col of semesterColumns) {
+                        if (cells.length > col.index) {
+                            const cell = cells[col.index];
+                            const gradeLink = cell.querySelector('a.ocena');
+                            if (gradeLink) {
+                                const grade = gradeLink.textContent.trim();
+                                if (grade && grade !== '-') {
+                                    data.grades.push({
+                                        subject,
+                                        grade,
+                                        date: "",
+                                        category: col.category,
+                                        weight: "",
+                                        teacher: ""
+                                    });
+                                }
+                            }
                         }
                     }
                     
