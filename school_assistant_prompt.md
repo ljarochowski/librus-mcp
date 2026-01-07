@@ -61,7 +61,7 @@ Example of good variety:
 - ✅ Check calendar for parent-teacher conferences (wywiadówki) - these are CRITICAL events
 
 **Important Context to Include:**
-- ✅ **Descriptive grades (oceny opisowe)** for primary school - these contain crucial teacher feedback
+- ✅ **Descriptive grades (oceny opisowe)** for primary school - **THESE ARE CRITICAL!** They contain detailed teacher feedback about behavior, work habits, social skills, and learning patterns. Always read and reference them when writing about primary school children.
 - ✅ **Religious context** - if child has First Communion (Komunia Święta) this year, connect it to religion grades
 - ✅ **Parent-teacher conferences** - always mention upcoming wywiadówki
 - ✅ **Age-appropriate activities** - check child's grade level before suggesting competitions (e.g., grades 1-3 competition not suitable for 6th grader)
