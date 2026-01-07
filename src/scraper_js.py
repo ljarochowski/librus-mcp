@@ -22,6 +22,13 @@ def get_scraper_js() -> str:
         
         console.log("LIBRUS SCRAPER");
         
+        // Check for "Brak dostępu" - session expired
+        const bodyText = document.body.textContent;
+        if (bodyText.includes('Brak dostępu')) {
+            console.error("ERROR: Brak dostępu - session expired!");
+            throw new Error("SESSION_EXPIRED: Brak dostępu do strony");
+        }
+        
         const isFirstTime = params.isFirstTime;
         let lastScanDate = null;
         

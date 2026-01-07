@@ -137,7 +137,25 @@ async def scrape_librus(child_name: str, force_full: bool = False) -> Dict:
             print(f"{Colors.GREEN}Page loaded{Colors.ENDC}")
             
             print(f"{Colors.BLUE}Running scraper...{Colors.ENDC}")
-            result = await scrape_librus_data(page, last_scrape, is_first)
+            try:
+                result = await scrape_librus_data(page, last_scrape, is_first)
+            except Exception as e:
+                # Check if it's a session expired error
+                if "SESSION_EXPIRED" in str(e):
+                    await context.close()
+                    await browser.close()
+                    print(f"\n{Colors.BOLD}{Colors.RED}Session expired for {child_name} (detected during scraping){Colors.ENDC}")
+                    print(f"{Colors.YELLOW}Use manual_login tool to refresh login session.{Colors.ENDC}\n")
+                    
+                    return {
+                        "status": "session_expired",
+                        "child_name": child_name,
+                        "message": f"Session expired during scraping. Manual login required.",
+                        "mode": "full" if force_full else "delta"
+                    }
+                else:
+                    raise
+            
             print(f"{Colors.GREEN}Scraping complete{Colors.ENDC}")
             
             # Update state
