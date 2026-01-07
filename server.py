@@ -68,32 +68,8 @@ async def get_browser_context(child_name: str, browser):
             cookies_file.unlink()
             return None
     
-    # Manual login required
-    print(f"{Colors.YELLOW}[{child_name}] Manual login required{Colors.ENDC}")
-    
-    context = await browser.new_context()
-    page = await context.new_page()
-    
-    try:
-        await page.goto('https://portal.librus.pl/rodzina/synergia/loguj')
-        print(f"{Colors.YELLOW}Please log in manually in the browser window...{Colors.ENDC}")
-        
-        print(f"{Colors.YELLOW}Waiting for login for {child_name}...{Colors.ENDC}")
-        await page.wait_for_url(lambda url: '/rodzic' in url, timeout=config.login_timeout_ms)
-        print(f"{Colors.GREEN}Logged in!{Colors.ENDC}")
-        
-        await context.storage_state(path=str(cookies_file))
-        print(f"{Colors.GREEN}Session saved{Colors.ENDC}")
-        
-        state["setup_completed"] = True
-        save_state(child_name, state)
-        
-    except Exception as e:
-        print(f"{Colors.RED}Login failed: {e}{Colors.ENDC}")
-        await context.close()
-        raise
-    
-    return context
+    # No valid session - return None (don't auto-open browser)
+    return None
 
 
 # ============================================================================
