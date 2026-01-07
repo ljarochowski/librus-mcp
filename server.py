@@ -629,8 +629,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 subject = grade.get('subject', 'Unknown')
                 category = grade.get('category', '').lower()
                 
-                # Skip semester/final grades - only analyze current grades
-                if any(x in category for x in ['śródroczn', 'roczn', 'końcow']):
+                # Skip semester/final/predicted grades - only analyze current grades
+                if any(x in category for x in ['śródroczn', 'roczn', 'końcow', 'przewidywan']):
                     continue
                 
                 if subject not in subjects:
@@ -1131,15 +1131,32 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     grades = month_data['data']['rawData'].get('grades', [])
                     all_grades.extend(grades)
             
+            # Separate current grades from semester grades
+            current_grades = []
+            semester_grades = {}
+            
+            for grade in all_grades:
+                category = grade.get('category', '').lower()
+                subject = grade.get('subject', 'Unknown')
+                
+                # Check if semester/final grade
+                if any(x in category for x in ['śródroczn', 'roczn', 'końcow', 'przewidywan']):
+                    if subject not in semester_grades:
+                        semester_grades[subject] = []
+                    semester_grades[subject].append(grade)
+                else:
+                    current_grades.append(grade)
+            
             # Create summary
             summary = {
-                "total_grades": len(all_grades),
-                "recent_grades": all_grades[-10:] if all_grades else [],  # Last 10 grades
+                "total_current_grades": len(current_grades),
+                "recent_current_grades": current_grades[-10:] if current_grades else [],
+                "semester_grades": semester_grades,
                 "subjects": {}
             }
             
-            # Group by subject
-            for grade in all_grades:
+            # Group current grades by subject
+            for grade in current_grades:
                 subject = grade.get('subject', 'Unknown')
                 if subject not in summary["subjects"]:
                     summary["subjects"][subject] = []
