@@ -52,7 +52,8 @@ def get_scraper_js() -> str:
             messages: [],
             announcements: [],
             grades: [],
-            calendar: []
+            calendar: [],
+            descriptiveGrade: null
         };
         
         // ====== 1. MESSAGES ======
@@ -283,14 +284,37 @@ def get_scraper_js() -> str:
                 }
             }
             
-            console.log(`Grades: ${data.grades.length}`);
+            // Extract descriptive grade (ocena opisowa) - for primary school
+            const descriptiveTables = doc.querySelectorAll("table.decorated.stretch");
+            for (const table of descriptiveTables) {
+                const header = table.querySelector("th strong");
+                if (header && header.textContent.includes("Ocena śródroczna")) {
+                    const rows = table.querySelectorAll("tbody tr");
+                    for (const row of rows) {
+                        const textCell = row.querySelector("td");
+                        if (textCell) {
+                            const paragraphs = textCell.querySelectorAll("p");
+                            let descriptiveText = "";
+                            for (const p of paragraphs) {
+                                const text = p.textContent.trim();
+                                if (text.length > 100) {
+                                    descriptiveText += text + "\\n\\n";
+                                }
+                            }
+                            if (descriptiveText) {
+                                data.descriptiveGrade = descriptiveText.trim();
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
         } catch (e) {
             console.error("Error fetching grades:", e.message);
         }
         
         // ====== 4. CALENDAR ======
         try {
-            console.log("Fetching calendar...");
             const today = new Date();
             
             for (let offset = 0; offset <= CONFIG.CALENDAR_MONTHS_AHEAD; offset++) {
@@ -317,7 +341,6 @@ def get_scraper_js() -> str:
                 
                 await new Promise(r => setTimeout(r, CONFIG.FETCH_DELAY_MS));
             }
-            console.log(`Calendar events: ${data.calendar.length}`);
         } catch (e) {
             console.error("Error fetching calendar:", e.message);
         }
