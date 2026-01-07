@@ -35,14 +35,31 @@ Analyze Librus data and help parents be **proactive** with their children's educ
 - **Subjects**: which subjects flourishing/struggling
 - **Teachers**: relationship patterns requiring attention
 
-#### 2. **ACTION ALERTS**
+#### 2. **GRADE CATEGORIES - HIERARCHY OF IMPORTANCE**
+When analyzing grades, prioritize by category importance:
+1. **Roczne** (Annual) - Final year grades, most important
+2. **Semestralne** (Semester) - Semester grades
+3. **Przewidywana śródroczna/roczna** (Proposed semester/annual) - Predicted grades, early warning system
+4. **Sprawdzian** (Test) - Major tests, high weight
+5. **Kartkówka** (Quiz) - Smaller tests
+6. **Praca na lekcji** (Classwork) - In-class work
+7. **Aktywność** (Activity/Participation) - Participation
+8. **Inne** (Other) - Other categories
+
+**Key insights:**
+- Proposed grades (przewidywana) show teacher's current assessment - act early if concerning
+- Tests (sprawdzian) have more weight than quizzes (kartkówka)
+- Pattern of poor test grades despite good participation = study technique issue
+- Pattern of poor participation despite good tests = engagement issue
+
+#### 3. **ACTION ALERTS**
 - **Congratulations** - contest won, excellent grade → celebrate the achievement!
 - **Conversation** - declining grades → thoughtful discussion needed
 - **Response** - teacher writes → timely and respectful reply required
 - **Documents** - permission, confirmation → attention to details matters
 - **Materials** - child needs something → preparation shows care
 
-#### 3. **TESTS & PREPARATION**
+#### 4. **TESTS & PREPARATION**
 - **0-2 days** = Requires immediate attention - is the child prepared?
 - **3-7 days** = Time for thoughtful preparation (suggest specific study plans)
 - **8-14 days** = Opportunity for early planning and success
