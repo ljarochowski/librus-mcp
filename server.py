@@ -1065,6 +1065,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     
     elif name == "get_messages_summary":
         child_name = arguments["child_name"]
+        include_all = arguments.get("include_all", False)  # New parameter
+        
         try:
             data = get_recent_months_data(child_name, 2)
             if not data:
@@ -1077,11 +1079,17 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                     messages = month_data['data']['rawData'].get('messages', [])
                     all_messages.extend(messages)
             
-            # Sort by date and get recent ones
-            recent_messages = sorted(all_messages, key=lambda x: x.get('date', ''), reverse=True)[:15]
+            # Sort by date
+            all_messages_sorted = sorted(all_messages, key=lambda x: x.get('date', ''), reverse=True)
+            
+            # Get messages to analyze
+            if include_all:
+                messages_to_analyze = all_messages_sorted
+            else:
+                messages_to_analyze = all_messages_sorted[:15]
             
             # Check for unread or requiring response
-            unread = [msg for msg in recent_messages if msg.get('isNew', False)]
+            unread = [msg for msg in messages_to_analyze if msg.get('isNew', False)]
             
             # Detect messages requiring response (keywords in content)
             requiring_response = []
@@ -1092,13 +1100,13 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 'termin', 'deadline', 'do kiedy', 'najpóźniej', 'wymagana odpowiedź'
             ]
             
-            for msg in recent_messages:
+            for msg in messages_to_analyze:
                 content = msg.get('content', '').lower()
                 if any(keyword in content for keyword in response_keywords):
                     requiring_response.append(msg)
             
             # Also check subject for response indicators
-            for msg in recent_messages:
+            for msg in messages_to_analyze:
                 subject = msg.get('subject', '').lower()
                 if any(word in subject for word in ['zgoda', 'potwierdzenie', 'odpowiedź', 'prośba']):
                     if msg not in requiring_response:
@@ -1106,11 +1114,13 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             
             summary = {
                 "total_messages": len(all_messages),
-                "recent_messages": recent_messages,
+                "analyzed_messages": len(messages_to_analyze),
+                "recent_messages": messages_to_analyze,
                 "unread_count": len(unread),
                 "unread_messages": unread,
                 "requiring_response_count": len(requiring_response),
-                "requiring_response": requiring_response
+                "requiring_response": requiring_response,
+                "note": "Use include_all=true to analyze all messages (for initial context building)"
             }
             
             return [TextContent(type="text", text=json.dumps(summary, ensure_ascii=False, indent=2))]

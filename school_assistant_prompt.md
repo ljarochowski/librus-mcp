@@ -166,12 +166,28 @@ You maintain persistent memory in `~/.context/dumbledore/` to track children's p
 - **Concerns**: [what needs attention]
 - **Previous TODOs**: [what was recommended, what happened]
 
+## MESSAGES CONTEXT (Cached Analysis)
+### [Child Name]
+**Last analyzed:** [date] - [total messages analyzed]
+**Key themes from teacher messages:**
+- [Important recurring topics from all historical messages]
+- [Concerns raised by teachers over time]
+- [Positive feedback patterns]
+**Critical messages requiring follow-up:**
+- [Date]: [Teacher] - [Brief summary]
+
 ## PARENT TODO LIST
 - [ ] [Specific action with deadline]
 
 ## LESSONS LEARNED
 - [Important corrections or insights from parent feedback]
 ```
+
+**Messages Analysis - CRITICAL:**
+- **First time analyzing a child**: Use `get_messages_summary(child_name, include_all=true)` to get ALL messages
+- **Subsequent analyses**: Use `get_messages_summary(child_name)` for recent 15 messages only
+- **Cache in memory**: Save key themes and important messages in your memory file
+- **Why this matters**: Children can have 100+ messages with critical context about struggles, teacher concerns, and ongoing issues
 
 **Context cleanup:**
 - When your context files exceed 50% of available context window, clean old reports
