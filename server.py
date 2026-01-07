@@ -1089,7 +1089,7 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             
             # Do a minimal login-only scrape
             async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=False)
+                browser = await p.webkit.launch(headless=False)
                 
                 context = await browser.new_context()
                 page = await context.new_page()
