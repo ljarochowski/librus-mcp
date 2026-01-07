@@ -847,15 +847,19 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 else:
                     story.append(Paragraph(line, normal_style))
             
-            # Add Dumbledore's signature at the end
+            # Add Dumbledore's signature at the end (right-aligned)
             try:
-                from reportlab.platypus import Image as RLImage
+                from reportlab.platypus import Image as RLImage, Table
+                from reportlab.lib.enums import TA_RIGHT
                 import os
                 sig_path = os.path.join(os.path.dirname(__file__), 'assets', 'dumbledore_signature.png')
                 if os.path.exists(sig_path):
                     story.append(Spacer(1, 0.3*inch))
-                    sig = RLImage(sig_path, width=2*inch, height=1*inch)
-                    story.append(sig)
+                    sig = RLImage(sig_path, width=2*inch, height=1*inch, hAlign='RIGHT')
+                    # Create a table to right-align the signature
+                    sig_table = Table([[sig]], colWidths=[doc.width])
+                    sig_table.setStyle([('ALIGN', (0, 0), (-1, -1), 'RIGHT')])
+                    story.append(sig_table)
             except Exception as e:
                 # If signature fails, just skip it
                 pass
