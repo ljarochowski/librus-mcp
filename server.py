@@ -744,64 +744,6 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             
         except Exception as e:
             return [TextContent(type="text", text=f"Error generating PDF: {str(e)}")]
-                from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-                from reportlab.lib.units import inch
-                from reportlab.pdfbase import pdfmetrics
-                from reportlab.pdfbase.ttfonts import TTFont
-                
-                # Create PDF
-                doc = SimpleDocTemplate(filename, pagesize=A4)
-                styles = getSampleStyleSheet()
-                
-                # Custom styles
-                title_style = ParagraphStyle(
-                    'CustomTitle',
-                    parent=styles['Heading1'],
-                    fontSize=16,
-                    spaceAfter=30,
-                )
-                
-                heading_style = ParagraphStyle(
-                    'CustomHeading',
-                    parent=styles['Heading2'],
-                    fontSize=14,
-                    spaceAfter=12,
-                )
-                
-                normal_style = styles['Normal']
-                
-                # Convert markdown-like text to PDF elements
-                story = []
-                lines = text_report.split('\n')
-                
-                for line in lines:
-                    line = line.strip()
-                    if not line:
-                        story.append(Spacer(1, 6))
-                    elif line.startswith('# '):
-                        story.append(Paragraph(line[2:], title_style))
-                    elif line.startswith('## '):
-                        story.append(Paragraph(line[3:], heading_style))
-                    elif line.startswith('### '):
-                        story.append(Paragraph(line[4:], heading_style))
-                    elif line.startswith('- '):
-                        story.append(Paragraph(f"• {line[2:]}", normal_style))
-                    else:
-                        if line:
-                            story.append(Paragraph(line, normal_style))
-                
-                doc.build(story)
-                
-                return [TextContent(type="text", text=f"PDF report generated successfully: {filename}")]
-                
-            except ImportError:
-                # Fallback: save as text file
-                with open(filename.replace('.pdf', '.txt'), 'w', encoding='utf-8') as f:
-                    f.write(text_report)
-                return [TextContent(type="text", text=f"PDF library not available. Report saved as text file: {filename.replace('.pdf', '.txt')}")]
-                
-        except Exception as e:
-            return [TextContent(type="text", text=f"Error generating PDF report: {str(e)}")]
     
     elif name == "generate_family_report":
         report_type = arguments.get("report_type", "weekly")
