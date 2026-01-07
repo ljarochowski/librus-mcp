@@ -757,8 +757,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 'CustomNormal',
                 fontName=font_name,
                 fontSize=10,
-                leading=14,
-                spaceAfter=8,
+                leading=13,
+                spaceAfter=4,
                 alignment=TA_JUSTIFY
             )
             
@@ -766,49 +766,58 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 'CustomBullet',
                 fontName=font_name,
                 fontSize=10,
-                leading=14,
-                spaceAfter=6,
+                leading=13,
+                spaceAfter=3,
                 leftIndent=20,
                 bulletIndent=10
             )
             
             # Parse markdown content
             lines = content.split('\n')
+            skip_next_space = False
+            
             for line in lines:
                 line = line.strip()
+                
+                # Skip empty lines after headers
                 if not line:
-                    story.append(Spacer(1, 0.15*inch))
+                    if not skip_next_space:
+                        story.append(Spacer(1, 0.08*inch))
+                    skip_next_space = False
                     continue
                 
                 # Escape HTML special chars but preserve our tags
                 line = line.replace('&', '&amp;').replace('<br>', '<br/>')
                 
+                # Convert markdown formatting
+                # Bold: **text** -> <b>text</b>
+                line = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', line)
+                # Italic: *text* -> <i>text</i>
+                line = re.sub(r'\*([^*]+?)\*', r'<i>\1</i>', line)
+                
                 # Headers
                 if line.startswith('# '):
                     text = line[2:]
-                    # Handle bold
-                    text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
                     story.append(Paragraph(text, title_style))
+                    skip_next_space = True
                 elif line.startswith('## '):
                     text = line[3:]
-                    text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
                     story.append(Paragraph(text, heading1_style))
+                    skip_next_space = True
                 elif line.startswith('### '):
                     text = line[4:]
-                    text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
                     story.append(Paragraph(text, heading2_style))
+                    skip_next_space = True
                 # Lists
                 elif line.startswith('- ') or line.startswith('* '):
                     text = line[2:]
-                    text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
                     story.append(Paragraph(f'• {text}', bullet_style))
                 # Horizontal rule
                 elif line.startswith('---'):
-                    story.append(Spacer(1, 0.2*inch))
+                    story.append(Spacer(1, 0.15*inch))
                 # Normal text
                 else:
-                    text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', line)
-                    story.append(Paragraph(text, normal_style))
+                    story.append(Paragraph(line, normal_style))
             
             doc.build(story)
             

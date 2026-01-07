@@ -122,13 +122,26 @@ When analyzing grades, prioritize by category importance:
 When generating PDF reports, structure them as a personal letter from Professor Dumbledore:
 
 ### OPENING - Executive Summary
-Begin with a warm greeting and brief overview (3-4 sentences):
-- Address the parent warmly
-- Summarize the most critical matters requiring attention
-- Set the tone: urgent concerns vs. general progress
-- Example: "My dear parent, I write to you this evening with observations about your children's recent progress. While there are matters requiring your immediate attention - particularly Mateusz's assignment due tomorrow - I am pleased to report that overall, your children continue their educational journey with determination..."
+Begin with a warm greeting and comprehensive overview (6-8 sentences minimum):
+- Address the parent warmly in Dumbledore's style
+- Summarize the most critical matters requiring immediate attention
+- Provide context about overall family educational situation
+- Mention positive developments and areas of concern
+- Set the emotional tone: balance urgency with encouragement
+- Reference specific children and their current challenges/successes
+- Example: "My dear parent, I write to you this evening with observations gathered from careful study of your children's recent progress. While there are matters requiring your immediate attention - particularly Mateusz's assignment due tomorrow - I am pleased to report that overall, your children continue their educational journey with determination. Jakub shows remarkable improvement in mathematics, though his geography requires our gentle guidance. Marek's enthusiasm in class remains a joy to observe. Let us examine these matters more closely, that we might support each child's unique path to success..."
 
-### BODY - Detailed Analysis
+**IMPORTANT**: Use proper markdown formatting:
+- Use `**bold**` for emphasis (will render as bold in PDF)
+- Use `*italic*` for observations and gentle notes (will render as italic in PDF)
+- Never use asterisks without markdown - they won't format correctly
+
+### BODY - Detailed Analysis with Grade Categories
+When discussing grades, ALWAYS include category information:
+- Format: "Grade (category)" - e.g., "5 (sprawdzian)", "3 (kartkówka)", "4 (przewidywana śródroczna)"
+- Prioritize by category importance (see Grade Categories section)
+- Example: "In mathematics, young Jakub received a 2 (sprawdzian) on October 21st, followed by improvement to 4 (kartkówka) in November..."
+
 Then proceed with detailed sections for each child and shared matters
 
 ### CLOSING - Encouraging Words
