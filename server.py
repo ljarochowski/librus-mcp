@@ -678,38 +678,84 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         
         try:
             from reportlab.lib.pagesizes import A4
-            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
             from reportlab.lib.units import inch
             from reportlab.pdfbase import pdfmetrics
             from reportlab.pdfbase.ttfonts import TTFont
+            from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
+            from reportlab.lib.colors import HexColor
             import re
             
-            # Create PDF
-            doc = SimpleDocTemplate(output_path, pagesize=A4)
-            styles = getSampleStyleSheet()
+            # Register Polish font
+            try:
+                pdfmetrics.registerFont(TTFont('DejaVuSans', '/System/Library/Fonts/Supplemental/DejaVuSans.ttf'))
+                pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', '/System/Library/Fonts/Supplemental/DejaVuSans-Bold.ttf'))
+                font_name = 'DejaVuSans'
+                font_bold = 'DejaVuSans-Bold'
+            except:
+                font_name = 'Helvetica'
+                font_bold = 'Helvetica-Bold'
+            
+            # Create PDF with margins
+            doc = SimpleDocTemplate(
+                output_path, 
+                pagesize=A4,
+                leftMargin=0.75*inch,
+                rightMargin=0.75*inch,
+                topMargin=0.75*inch,
+                bottomMargin=0.75*inch
+            )
             story = []
             
-            # Custom styles
+            # Custom styles with Polish font
             title_style = ParagraphStyle(
                 'CustomTitle',
-                parent=styles['Heading1'],
-                fontSize=16,
-                spaceAfter=20,
+                fontName=font_bold,
+                fontSize=18,
+                leading=22,
+                spaceAfter=24,
+                textColor=HexColor('#2C3E50'),
+                alignment=TA_CENTER
             )
             
-            heading_style = ParagraphStyle(
-                'CustomHeading',
-                parent=styles['Heading2'],
+            heading1_style = ParagraphStyle(
+                'CustomHeading1',
+                fontName=font_bold,
                 fontSize=14,
+                leading=18,
                 spaceAfter=12,
+                spaceBefore=16,
+                textColor=HexColor('#34495E')
+            )
+            
+            heading2_style = ParagraphStyle(
+                'CustomHeading2',
+                fontName=font_bold,
+                fontSize=12,
+                leading=16,
+                spaceAfter=10,
+                spaceBefore=12,
+                textColor=HexColor('#7F8C8D')
             )
             
             normal_style = ParagraphStyle(
                 'CustomNormal',
-                parent=styles['Normal'],
+                fontName=font_name,
                 fontSize=10,
+                leading=14,
+                spaceAfter=8,
+                alignment=TA_JUSTIFY
+            )
+            
+            bullet_style = ParagraphStyle(
+                'CustomBullet',
+                fontName=font_name,
+                fontSize=10,
+                leading=14,
                 spaceAfter=6,
+                leftIndent=20,
+                bulletIndent=10
             )
             
             # Parse markdown content
@@ -717,26 +763,38 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
             for line in lines:
                 line = line.strip()
                 if not line:
-                    story.append(Spacer(1, 0.1*inch))
+                    story.append(Spacer(1, 0.15*inch))
                     continue
+                
+                # Escape HTML special chars but preserve our tags
+                line = line.replace('&', '&amp;').replace('<br>', '<br/>')
                 
                 # Headers
                 if line.startswith('# '):
-                    story.append(Paragraph(line[2:], title_style))
+                    text = line[2:]
+                    # Handle bold
+                    text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
+                    story.append(Paragraph(text, title_style))
                 elif line.startswith('## '):
-                    story.append(Paragraph(line[3:], heading_style))
+                    text = line[3:]
+                    text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
+                    story.append(Paragraph(text, heading1_style))
                 elif line.startswith('### '):
-                    story.append(Paragraph(line[4:], heading_style))
+                    text = line[4:]
+                    text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
+                    story.append(Paragraph(text, heading2_style))
                 # Lists
                 elif line.startswith('- ') or line.startswith('* '):
-                    story.append(Paragraph('• ' + line[2:], normal_style))
-                # Bold
-                elif '**' in line:
-                    line = line.replace('**', '<b>').replace('**', '</b>')
-                    story.append(Paragraph(line, normal_style))
+                    text = line[2:]
+                    text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
+                    story.append(Paragraph(f'• {text}', bullet_style))
+                # Horizontal rule
+                elif line.startswith('---'):
+                    story.append(Spacer(1, 0.2*inch))
                 # Normal text
                 else:
-                    story.append(Paragraph(line, normal_style))
+                    text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', line)
+                    story.append(Paragraph(text, normal_style))
             
             doc.build(story)
             
