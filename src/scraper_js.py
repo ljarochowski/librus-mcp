@@ -210,7 +210,8 @@ def get_scraper_js() -> str:
         // ====== 3. GRADES ======
         try {
             console.log("Fetching grades...");
-            const doc = await fetchPage('https://synergia.librus.pl/przegladaj_oceny/uczen');
+            // Use current page document (already on grades page)
+            const doc = document;
             
             // Parse ALL tables with grades
             const allTables = doc.querySelectorAll("table.decorated.stretch");
