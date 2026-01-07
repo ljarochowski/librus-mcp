@@ -211,26 +211,14 @@ def get_scraper_js() -> str:
             console.log("Fetching grades...");
             const doc = await fetchPage('https://synergia.librus.pl/przegladaj_oceny/uczen');
             
+            // Parse ALL tables with grades
             const allTables = doc.querySelectorAll("table.decorated.stretch");
-            let mainTable = null;
             
             for (const table of allTables) {
                 const style = table.getAttribute('style') || '';
                 if (style.includes('display: none') || style.includes('display:none')) continue;
                 
-                const headers = table.querySelectorAll("thead td");
-                const hasSubject = Array.from(headers).some(h => h.textContent.trim() === "Przedmiot");
-                
-                if (hasSubject) {
-                    mainTable = table;
-                    break;
-                }
-            }
-            
-            if (!mainTable) {
-                console.log("No grades table found");
-            } else {
-                const rows = Array.from(mainTable.querySelectorAll("tbody > tr"));
+                const rows = Array.from(table.querySelectorAll("tbody > tr"));
                 
                 for (const row of rows) {
                     if (row.getAttribute('name') === 'przedmioty_all') continue;
@@ -241,27 +229,10 @@ def get_scraper_js() -> str:
                     const subject = cells[1]?.textContent.trim();
                     if (!subject) continue;
                     
-                    const gradeCell = cells[2];
-                    if (!gradeCell) continue;
-                    
-                    // Extract grades from span.grade-box using class="ocena" links
-                    const gradeLinks = gradeCell.querySelectorAll('a.ocena');
-                    for (const link of gradeLinks) {
-                        const grade = link.textContent.trim();
-                        if (grade) {
-                            data.grades.push({
-                                subject,
-                                grade,
-                                date: "",
-                                category: "",
-                                weight: "",
-                                teacher: ""
-                            });
-                        }
-                    }
-                    
-                    // Check for nested table in next row (descriptive grades)
+                    // Check for nested table first (descriptive grades)
                     const nextRow = row.nextElementSibling;
+                    let hasNestedGrades = false;
+                    
                     if (nextRow && nextRow.getAttribute('name') === 'przedmioty_all') {
                         const nestedTable = nextRow.querySelector("table tbody");
                         if (nestedTable) {
@@ -275,10 +246,32 @@ def get_scraper_js() -> str:
                                 const date = gradeCells[4]?.textContent.trim();
                                 
                                 if (grade && grade !== 'Brak ocen' && category && (category.startsWith('Edukacja') || category.startsWith('Rozwój'))) {
+                                    hasNestedGrades = true;
                                     data.grades.push({
                                         subject: category,
                                         grade,
                                         date: date || "",
+                                        category: "",
+                                        weight: "",
+                                        teacher: ""
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Only parse span.grade-box if no nested grades found
+                    if (!hasNestedGrades) {
+                        const gradeCell = cells[2];
+                        if (gradeCell) {
+                            const gradeLinks = gradeCell.querySelectorAll('a.ocena');
+                            for (const link of gradeLinks) {
+                                const grade = link.textContent.trim();
+                                if (grade) {
+                                    data.grades.push({
+                                        subject,
+                                        grade,
+                                        date: "",
                                         category: "",
                                         weight: "",
                                         teacher: ""

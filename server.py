@@ -130,8 +130,11 @@ async def scrape_librus(child_name: str, force_full: bool = False) -> Dict:
             page = await context.new_page()
             
             print(f"{Colors.BLUE}Navigating to Librus...{Colors.ENDC}")
-            await page.goto('https://synergia.librus.pl/rodzic/index', timeout=config.page_timeout_ms)
+            await page.goto('https://synergia.librus.pl/przegladaj_oceny/uczen', timeout=config.page_timeout_ms)
             print(f"{Colors.GREEN}Page loaded{Colors.ENDC}")
+            
+            # Enable console logging for debugging
+            page.on("console", lambda msg: print(f"  JS: {msg.text}"))
             
             print(f"{Colors.BLUE}Running scraper...{Colors.ENDC}")
             result = await scrape_librus_data(page, last_scrape, is_first)
