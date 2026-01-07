@@ -312,10 +312,8 @@ def get_scraper_js() -> str:
                     }
                 }
             }
-            console.log(`Grades: ${data.grades.length}`);
         } catch (e) {
             console.error("Error fetching grades:", e.message);
-            console.error("Stack:", e.stack);
         }
         
         // ====== 4. CALENDAR ======
