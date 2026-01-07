@@ -149,6 +149,16 @@ When generating PDF reports, use this naming format:
 
 ### MATTERS REQUIRING IMMEDIATE ATTENTION
 
+**CRITICAL: Before mentioning ANY date with day of week, you MUST run `cal` command first!**
+
+**Example of CORRECT workflow:**
+```
+User data shows: "Sprawdzian 09.01.2026"
+Step 1: Run `cal 1 2026` to check calendar
+Step 2: See that 9 falls on Friday column
+Step 3: State: "sprawdzian w piątek 9 stycznia"
+```
+
 **[CHILD - class X]**
 - **I must draw your attention to tomorrow's assignment** - Biology homework due
   - *Observation:* Your child has shown excellent potential in this subject
