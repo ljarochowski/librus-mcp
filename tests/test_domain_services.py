@@ -1,7 +1,7 @@
 """Tests for domain services"""
 import pytest
 from src.domain.models import Grade, Homework, CalendarEvent, ScrapeResult, Message, Remark
-from src.domain.services import GradeAnalyzer, HomeworkTracker, CalendarAnalyzer
+from src.domain.services import GradeAnalyzer, HomeworkTracker, CalendarAnalyzer, GradeTrend
 from datetime import datetime, timedelta
 
 
@@ -47,7 +47,7 @@ class TestGradeAnalyzer:
             Grade("Math", "5", "2024-01-05", "t"),
             Grade("Math", "5", "2024-01-06", "t"),
         ]
-        assert self.analyzer.get_trend(grades, "Math") == "IMPROVING"
+        assert self.analyzer.get_trend(grades, "Math") == GradeTrend.IMPROVING
     
     def test_get_trend_declining(self):
         grades = [
@@ -58,7 +58,7 @@ class TestGradeAnalyzer:
             Grade("Math", "2", "2024-01-05", "t"),
             Grade("Math", "2", "2024-01-06", "t"),
         ]
-        assert self.analyzer.get_trend(grades, "Math") == "DECLINING"
+        assert self.analyzer.get_trend(grades, "Math") == GradeTrend.DECLINING
     
     def test_get_trend_stable(self):
         grades = [
@@ -69,11 +69,11 @@ class TestGradeAnalyzer:
             Grade("Math", "4", "2024-01-05", "t"),
             Grade("Math", "4", "2024-01-06", "t"),
         ]
-        assert self.analyzer.get_trend(grades, "Math") == "STABLE"
+        assert self.analyzer.get_trend(grades, "Math") == GradeTrend.STABLE
     
     def test_get_trend_insufficient_data(self):
         grades = [Grade("Math", "5", "2024-01-01", "t")]
-        assert self.analyzer.get_trend(grades, "Math") == "INSUFFICIENT_DATA"
+        assert self.analyzer.get_trend(grades, "Math") == GradeTrend.INSUFFICIENT_DATA
     
     def test_get_subjects_at_risk(self):
         grades = [

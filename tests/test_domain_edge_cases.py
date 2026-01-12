@@ -1,7 +1,7 @@
 """Unit tests for domain services - edge cases and error handling"""
 import pytest
 from datetime import datetime, date, timedelta
-from src.domain.services import GradeAnalyzer, HomeworkTracker, CalendarAnalyzer
+from src.domain.services import GradeAnalyzer, HomeworkTracker, CalendarAnalyzer, GradeTrend
 from src.domain.models import Grade, Homework, CalendarEvent, GradeValue, SubjectName
 
 # Relative dates for non-flaky tests
@@ -63,11 +63,11 @@ class TestGradeAnalyzerEdgeCases:
         analyzer = GradeAnalyzer()
         
         # Empty list
-        assert analyzer.get_trend([], "Math") == "INSUFFICIENT_DATA"
+        assert analyzer.get_trend([], "Math") == GradeTrend.INSUFFICIENT_DATA
         
         # Single grade
         single_grade = [Grade(subject="Math", grade="5", category="test", date=TODAY)]
-        assert analyzer.get_trend(single_grade, "Math") == "INSUFFICIENT_DATA"
+        assert analyzer.get_trend(single_grade, "Math") == GradeTrend.INSUFFICIENT_DATA
         
         # All same grades
         same_grades = [
@@ -75,7 +75,7 @@ class TestGradeAnalyzerEdgeCases:
             Grade(subject="Math", grade="5", category="test", date=TODAY),
             Grade(subject="Math", grade="5", category="test", date=TODAY),
         ]
-        assert analyzer.get_trend(same_grades, "Math") == "STABLE"
+        assert analyzer.get_trend(same_grades, "Math") == GradeTrend.STABLE
     
     def test_get_subjects_at_risk_with_extreme_values(self):
         """Test at-risk detection with extreme grade values"""

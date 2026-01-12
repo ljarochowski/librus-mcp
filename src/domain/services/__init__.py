@@ -4,6 +4,14 @@ from datetime import datetime, timedelta
 from ..models import Grade, Homework, CalendarEvent, ScrapeResult
 
 
+# Grade trend constants
+class GradeTrend:
+    IMPROVING = "IMPROVING"
+    DECLINING = "DECLINING"
+    STABLE = "STABLE"
+    INSUFFICIENT_DATA = "INSUFFICIENT_DATA"
+
+
 class GradeAnalyzer:
     """Analyzes grades and calculates trends"""
     
@@ -40,7 +48,7 @@ class GradeAnalyzer:
         subject_grades = sorted(subject_grades, key=lambda g: g.date or '')
         
         if len(subject_grades) < 3:
-            return "INSUFFICIENT_DATA"
+            return GradeTrend.INSUFFICIENT_DATA
         
         recent = subject_grades[-3:]
         early = subject_grades[:3]
@@ -49,14 +57,14 @@ class GradeAnalyzer:
         early_avg = self._avg([g.numeric_value for g in early if g.numeric_value])
         
         if recent_avg is None or early_avg is None:
-            return "INSUFFICIENT_DATA"
+            return GradeTrend.INSUFFICIENT_DATA
         
         diff = recent_avg - early_avg
         if diff > 0.3:
-            return "IMPROVING"
+            return GradeTrend.IMPROVING
         elif diff < -0.3:
-            return "DECLINING"
-        return "STABLE"
+            return GradeTrend.DECLINING
+        return GradeTrend.STABLE
     
     def get_subjects_at_risk(self, grades: List[Grade], threshold: float = 2.5) -> List[str]:
         """Get subjects with average below threshold"""
