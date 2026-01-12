@@ -4,7 +4,7 @@ from typing import Dict, Optional
 
 from ..ports import IBrowserPort, IStoragePort, IConfigPort
 from ..domain.models import ScrapeResult, Grade
-from ..domain.services import GradeAnalyzer, HomeworkTracker, CalendarAnalyzer, ChildReportGenerator
+from ..domain.services import GradeAnalyzer, HomeworkTracker, CalendarAnalyzer, ChildReportGenerator, GradeHistoryService, SessionService, ScrapeResultService
 
 
 class ScrapeChildUseCase:
@@ -15,18 +15,24 @@ class ScrapeChildUseCase:
         self.storage = storage
         self.config = config
         self.report_generator = ChildReportGenerator()
+        self.grade_history_service = GradeHistoryService()
+        self.session_service = SessionService()
+        self.scrape_result_service = ScrapeResultService()
     
     async def execute(self, child_name: str, force_full: bool = False) -> Dict:
         child = self.config.get_child(child_name)
         if not child:
             return {"status": "error", "message": f"Child not found: {child_name}"}
         
-        # Check session
-        if not await self.browser.is_session_valid(child):
+        # Check session using domain service
+        is_session_valid = await self.browser.is_session_valid(child)
+        session_check = self.session_service.should_scrape(is_session_valid, force_full)
+        
+        if not session_check["should_proceed"]:
             return {
-                "status": "session_expired",
+                "status": session_check["reason"],
                 "child_name": child.name,
-                "message": "Session expired. Use manual_login to refresh."
+                "message": session_check["message"]
             }
         
         # Get last scrape date
@@ -46,32 +52,23 @@ class ScrapeChildUseCase:
         # Update memory with analysis
         self._update_memory(child.name, result)
         
+        # Determine mode using domain service
+        mode = self.scrape_result_service.determine_scrape_mode(force_full, last_scrape)
+        
         return {
             "status": "success",
             "child_name": child.name,
             "stats": result.stats,
-            "mode": "full" if force_full or not last_scrape else f"delta since {last_scrape}",
+            "mode": mode,
             "has_urgent": result.has_urgent_items
         }
     
     def _update_memory(self, child_name: str, result: ScrapeResult) -> None:
         memory = self.storage.load_memory(child_name)
         
-        # Update grade history
-        grade_history = memory.setdefault("grade_history", {})
-        for grade in result.grades:
-            subj = grade.subject
-            if subj not in grade_history:
-                grade_history[subj] = []
-            
-            entry = {
-                "grade": grade.grade,
-                "date": grade.date,
-                "category": grade.category,
-                "weight": grade.weight
-            }
-            if entry not in grade_history[subj]:
-                grade_history[subj].append(entry)
+        # Update grade history using domain service
+        existing_history = memory.setdefault("grade_history", {})
+        memory["grade_history"] = self.grade_history_service.update_grade_history(existing_history, result.grades)
         
         # Add summary from domain service
         memory["last_summary"] = self.report_generator.generate_summary(result)

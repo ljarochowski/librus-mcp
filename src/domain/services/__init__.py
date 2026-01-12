@@ -12,6 +12,54 @@ class GradeTrend:
     INSUFFICIENT_DATA = "INSUFFICIENT_DATA"
 
 
+class GradeHistoryService:
+    """Manages grade history and deduplication"""
+    
+    def update_grade_history(self, existing_history: Dict, new_grades: List[Grade]) -> Dict:
+        """Update grade history with new grades, avoiding duplicates"""
+        grade_history = existing_history.copy()
+        
+        for grade in new_grades:
+            subj = grade.subject
+            if subj not in grade_history:
+                grade_history[subj] = []
+            
+            entry = {
+                "grade": grade.grade,
+                "date": grade.date,
+                "category": grade.category,
+                "weight": grade.weight
+            }
+            if entry not in grade_history[subj]:
+                grade_history[subj].append(entry)
+        
+        return grade_history
+
+
+class SessionService:
+    """Handles session validation logic"""
+    
+    def should_scrape(self, is_session_valid: bool, force_full: bool) -> Dict:
+        """Determine if scraping should proceed"""
+        if not is_session_valid:
+            return {
+                "should_proceed": False,
+                "reason": "session_expired",
+                "message": "Session expired. Use manual_login to refresh."
+            }
+        return {"should_proceed": True}
+
+
+class ScrapeResultService:
+    """Handles scrape result formatting and mode determination"""
+    
+    def determine_scrape_mode(self, force_full: bool, last_scrape: str) -> str:
+        """Determine scrape mode description"""
+        if force_full or not last_scrape:
+            return "full"
+        return f"delta since {last_scrape}"
+
+
 class GradeAnalyzer:
     """Analyzes grades and calculates trends"""
     
