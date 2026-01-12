@@ -2,35 +2,30 @@
 
 MCP (Model Context Protocol) server for scraping Polish school system data from Librus Synergia.
 
-## Architecture
-
-This project follows **Clean Architecture** (Ports & Adapters / DDD):
+## Project Structure
 
 ```
 src/
-├── domain/           # Core business logic (no external dependencies)
-│   ├── models/       # Entities: Child, Grade, Homework, CalendarEvent, etc.
+├── domain/           # Business logic and data models
+│   ├── models/       # Child, Grade, Homework, CalendarEvent, etc.
 │   └── services/     # GradeAnalyzer, HomeworkTracker, CalendarAnalyzer
-├── ports/            # Abstract interfaces
-│   └── __init__.py   # IBrowserPort, IStoragePort, IConfigPort
-├── adapters/         # Implementations
-│   ├── browser.py    # PlaywrightBrowserAdapter
-│   ├── storage.py    # FileStorageAdapter
-│   └── config.py     # YamlConfigAdapter
-├── application/      # Use cases
-│   └── __init__.py   # ScrapeChild, LoginChild, AnalyzeGrades, etc.
-└── infrastructure/   # MCP server wiring
-    └── mcp_server.py # LibrusMcpServer
+├── ports/            # Interface definitions
+├── adapters/         # External service implementations
+│   ├── browser.py    # Web scraping with Playwright
+│   ├── storage.py    # File-based data storage
+│   └── config.py     # YAML configuration
+├── application/      # Use cases and workflows
+└── infrastructure/   # MCP server setup
 ```
 
 ## Features
 
-- **Automated login** - Configurable credentials per child
-- **Full data scraping** - Grades, homework, calendar, messages, remarks
-- **Delta mode** - Only fetch new data since last scrape
+- **Automated login** - Store credentials per child for hands-free operation
+- **Complete data extraction** - Grades, homework, calendar, messages, remarks
+- **Incremental updates** - Only fetch new data since last scrape
 - **Multi-child support** - Manage multiple children with aliases
-- **Grade analysis** - Trends, averages, at-risk subjects
-- **Clean architecture** - Testable, maintainable, extensible
+- **Grade analysis** - Calculate trends, averages, identify at-risk subjects
+- **PDF reports** - Generate formatted letters with Dumbledore signature
 
 ## Installation
 
@@ -105,11 +100,17 @@ Add to your MCP client config:
 | `scrape_librus` | Scrape data for a child |
 | `manual_login` | Trigger login (uses config credentials) |
 | `get_grades_summary` | Get grades with semester breakdown |
+| `get_grade_details_by_date` | Get detailed grades for specific date range |
+| `get_teacher_subject_mapping` | Get teacher to subject mapping |
+| `get_semester_grades_summary` | Get semester/final grades only |
 | `get_calendar_events` | Get upcoming events and tests |
 | `get_homework_summary` | Get homework assignments |
-| `get_messages_summary` | Get messages from teachers |
+| `get_messages_summary` | Get messages from teachers (enhanced with full content) |
 | `get_remarks_summary` | Get teacher remarks |
+| `get_recent_activity_delta` | Get summary of changes since date |
 | `analyze_grade_trends` | Analyze trends, averages, at-risk subjects |
+| `analyze_urgent_matters` | AI-powered urgency analysis |
+| `generate_pdf_report` | Generate PDF with Dumbledore signature |
 | `list_children` | List configured children |
 
 ## Testing
@@ -119,7 +120,7 @@ pytest tests/ -v
 pytest tests/ --cov=src --cov-report=term-missing
 ```
 
-Current: **81 tests, 71% coverage**
+Current: **96 tests, 73% coverage**
 
 ## Data Storage
 
