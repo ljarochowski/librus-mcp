@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 from pathlib import Path
 
-from playwright.async_api import async_playwright, Browser, BrowserContext, Page
+from playwright.async_api import async_playwright, Page
 
 from ..ports import IBrowserPort
 from ..domain.models import Child, ScrapeResult, Grade, Homework, CalendarEvent, Message, Remark
