@@ -360,9 +360,24 @@ class LibrusMcpServer:
             return f"✅ PDF generated: {output_path}"
             
         except ImportError as e:
-            return f"❌ Missing dependencies for PDF generation: {e}. Install: pip install markdown weasyprint"
+            missing_lib = str(e).split("'")[1] if "'" in str(e) else "unknown"
+            return f"❌ Missing Python dependencies for PDF generation: {e}.\n\nInstall with: pip install markdown weasyprint"
+        
         except Exception as e:
-            return f"❌ PDF generation failed: {e}"
+            error_msg = str(e)
+            if "libpango" in error_msg or "pango" in error_msg:
+                return f"""❌ PDF generation failed: Missing system libraries.
+
+macOS: brew install pango
+Ubuntu/Debian: sudo apt-get install libpango-1.0-0 libharfbuzz0b libpangoft2-1.0-0
+CentOS/RHEL: sudo yum install pango harfbuzz
+
+For detailed installation instructions, see:
+https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation
+
+Error: {error_msg}"""
+            else:
+                return f"❌ PDF generation failed: {error_msg}"
     
     def _get_grade_details_by_date(self, child_name: str, date_from: str, date_to: str, include_semester: bool) -> dict:
         """Get detailed grades for specific date range"""
@@ -437,6 +452,8 @@ class LibrusMcpServer:
             return {"error": f"No data found for {child.name}"}
         
         semester_grades = []
+        seen_grades = set()  # Track duplicates: (subject, grade_value, category_type)
+        
         for month_data in data.values():
             raw = month_data.get('data', {}).get('rawData', {})
             grades = raw.get('grades', [])
@@ -445,16 +462,43 @@ class LibrusMcpServer:
                 category = grade.get('category', '').lower()
                 # Filter for semester/final grades
                 if any(x in category for x in ['śródroczn', 'roczn', 'końcow', 'przewidywan']):
-                    semester_grades.append(grade)
+                    # Create deduplication key
+                    subject = grade.get('subject', '') or 'Unknown'
+                    teacher = grade.get('teacher', '')
+                    grade_value = grade.get('grade', '')
+                    
+                    # If no subject but has teacher, try to map it
+                    if not subject or subject == 'Unknown':
+                        # Try to find subject from teacher mapping in other grades
+                        for other_grade in grades:
+                            if (other_grade.get('teacher') == teacher and 
+                                other_grade.get('subject') and 
+                                other_grade.get('subject') != 'Unknown'):
+                                subject = other_grade.get('subject')
+                                break
+                    
+                    # Normalize category for deduplication
+                    category_type = 'predicted' if 'przewidywan' in category else 'final'
+                    
+                    # Create unique key for this grade
+                    dedup_key = (subject, grade_value, category_type)
+                    
+                    if dedup_key not in seen_grades:
+                        seen_grades.add(dedup_key)
+                        # Enrich grade with mapped subject
+                        enriched_grade = grade.copy()
+                        enriched_grade['subject'] = subject
+                        semester_grades.append(enriched_grade)
         
-        # Sort by date (newest first)
-        semester_grades.sort(key=lambda x: x.get('date', ''), reverse=True)
+        # Sort by subject name
+        semester_grades.sort(key=lambda x: x.get('subject', ''))
         
         return {
             "child_name": child.name,
             "semester": semester,
             "year": year,
             "total_semester_grades": len(semester_grades),
+            "unique_subjects": len(set(g.get('subject', '') for g in semester_grades)),
             "grades": semester_grades
         }
     
@@ -561,8 +605,75 @@ class LibrusMcpServer:
                     except:
                         pass
             
-            # Check upcoming tests
-            for event in raw.get('calendar', []):
+            # Check messages for payment deadlines and other urgent matters
+            for msg in raw.get('messages', []):
+                content = (msg.get('content', '') + ' ' + msg.get('title', '')).lower()
+                msg_date = msg.get('date', '')
+                
+                # Look for payment deadlines
+                if any(keyword in content for keyword in ['płatność', 'wpłata', 'opłata', 'składka', 'payment']):
+                    # Try to extract date and amount from message
+                    import re
+                    
+                    # Look for dates in various formats
+                    date_patterns = [
+                        r'(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})',  # dd.mm.yyyy
+                        r'(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})',  # yyyy-mm-dd
+                    ]
+                    
+                    # Look for amounts
+                    amount_patterns = [
+                        r'(\d+)\s*zł',  # 70 zł
+                        r'(\d+)\s*PLN',  # 70 PLN
+                        r'(\d+)[,.](\d{2})\s*zł',  # 70.50 zł
+                    ]
+                    
+                    found_date = None
+                    found_amount = None
+                    
+                    for pattern in date_patterns:
+                        match = re.search(pattern, content)
+                        if match:
+                            try:
+                                if len(match.group(1)) == 4:  # yyyy-mm-dd format
+                                    found_date = f"{match.group(1)}-{match.group(2).zfill(2)}-{match.group(3).zfill(2)}"
+                                else:  # dd.mm.yyyy format
+                                    found_date = f"{match.group(3)}-{match.group(2).zfill(2)}-{match.group(1).zfill(2)}"
+                                break
+                            except:
+                                pass
+                    
+                    for pattern in amount_patterns:
+                        match = re.search(pattern, content)
+                        if match:
+                            if len(match.groups()) == 2:  # with decimal
+                                found_amount = f"{match.group(1)}.{match.group(2)} zł"
+                            else:  # whole number
+                                found_amount = f"{match.group(1)} zł"
+                            break
+                    
+                    if found_date:
+                        try:
+                            due_date = datetime.strptime(found_date, '%Y-%m-%d').date()
+                            days_until = (due_date - today).days
+                            
+                            item = {
+                                "type": "payment",
+                                "amount": found_amount or "unknown",
+                                "due": found_date,
+                                "title": msg.get('title', ''),
+                                "sender": msg.get('sender', ''),
+                                "days_until": days_until
+                            }
+                            
+                            if 0 <= days_until <= 2:
+                                critical_0_2_days.append(item)
+                            elif 3 <= days_until <= 7:
+                                important_3_7_days.append(item)
+                            elif 8 <= days_until <= 14:
+                                upcoming_8_14_days.append(item)
+                        except:
+                            pass
                 event_date_str = event.get('date', '')
                 if event_date_str and 'sprawdzian' in event.get('title', '').lower():
                     try:
