@@ -61,27 +61,10 @@ class ScrapeResultService:
 
 
 class GradeDataService:
-    """Handles grade data processing and analysis"""
+    """Handles grade data processing and analysis - PURE DOMAIN"""
     
     def __init__(self):
         self.analyzer = GradeAnalyzer()
-    
-    def convert_raw_to_grades(self, raw_data: Dict) -> List[Grade]:
-        """Convert raw data to Grade domain objects"""
-        all_grades = []
-        for month_data in raw_data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            for g in raw.get('grades', []):
-                all_grades.append(Grade(
-                    subject=g.get('subject', ''),
-                    grade=g.get('grade', ''),
-                    date=g.get('date'),
-                    category=g.get('category', ''),
-                    weight=g.get('weight', ''),
-                    teacher=g.get('teacher', ''),
-                    comment=g.get('comment', '')
-                ))
-        return all_grades
     
     def analyze_grades_by_subject(self, grades: List[Grade]) -> Dict:
         """Analyze grades grouped by subject"""
@@ -149,30 +132,26 @@ class GradeDataService:
 
 
 class TeacherMappingService:
-    """Handles teacher to subject mapping"""
+    """Handles teacher to subject mapping - PURE DOMAIN"""
     
-    def build_teacher_subject_mapping(self, raw_data: Dict) -> Dict:
-        """Build mapping of teachers to subjects"""
+    def build_teacher_subject_mapping(self, grades: List[Dict]) -> Dict:
+        """Build mapping of teachers to subjects from grade data"""
         teacher_subject = {}
         
-        for month_data in raw_data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            grades = raw.get('grades', [])
-            
-            for grade in grades:
-                teacher = grade.get('teacher', '').strip()
-                subject = grade.get('subject', '').strip()
-                if teacher and subject:
-                    teacher_subject[teacher] = subject
+        for grade in grades:
+            teacher = grade.get('teacher', '').strip()
+            subject = grade.get('subject', '').strip()
+            if teacher and subject:
+                teacher_subject[teacher] = subject
         
         return teacher_subject
 
 
 class UrgentMattersService:
-    """Analyzes urgent matters like payments and deadlines"""
+    """Analyzes urgent matters like payments and deadlines - PURE DOMAIN"""
     
-    def analyze_urgent_matters(self, raw_data: Dict) -> Dict:
-        """Analyze urgent matters from raw data"""
+    def analyze_urgent_matters(self, homework: List[Dict], messages: List[Dict], calendar: List[Dict]) -> Dict:
+        """Analyze urgent matters from structured data"""
         from datetime import datetime, timedelta
         import re
         
@@ -181,17 +160,14 @@ class UrgentMattersService:
         important_3_7_days = []
         upcoming_8_14_days = []
         
-        for month_data in raw_data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            
-            # Process homework deadlines
-            self._process_homework_deadlines(raw.get('homework', []), today, critical_0_2_days, important_3_7_days, upcoming_8_14_days)
-            
-            # Process payment messages
-            self._process_payment_messages(raw.get('messages', []), today, critical_0_2_days, important_3_7_days, upcoming_8_14_days)
-            
-            # Process upcoming tests
-            self._process_upcoming_tests(raw.get('calendar', []), today, critical_0_2_days, important_3_7_days, upcoming_8_14_days)
+        # Process homework deadlines
+        self._process_homework_deadlines(homework, today, critical_0_2_days, important_3_7_days, upcoming_8_14_days)
+        
+        # Process payment messages
+        self._process_payment_messages(messages, today, critical_0_2_days, important_3_7_days, upcoming_8_14_days)
+        
+        # Process upcoming tests
+        self._process_upcoming_tests(calendar, today, critical_0_2_days, important_3_7_days, upcoming_8_14_days)
         
         return {
             "critical_0_2_days": critical_0_2_days,
@@ -316,40 +292,25 @@ class UrgentMattersService:
 
 
 class ActivityDeltaService:
-    """Handles activity delta analysis"""
+    """Handles activity delta analysis - PURE DOMAIN"""
     
-    def get_activity_since_date(self, raw_data: Dict, since_date: str) -> Dict:
-        """Get activity since specific date"""
+    def get_activity_since_date(self, grades: List[Dict], homework: List[Dict], messages: List[Dict], calendar: List[Dict], since_date: str) -> Dict:
+        """Get activity since specific date from structured data"""
         from datetime import datetime, timedelta
         
-        new_grades = []
-        new_homework = []
-        new_messages = []
-        upcoming_tests = []
+        new_grades = [g for g in grades if g.get('date', '') >= since_date]
+        new_homework = [h for h in homework if h.get('date', '') >= since_date]
+        new_messages = [m for m in messages if m.get('date', '') >= since_date]
         
+        # Upcoming tests (next 7 days)
         today = datetime.now().date()
         week_ahead = (today + timedelta(days=7)).strftime('%Y-%m-%d')
         
-        for month_data in raw_data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            
-            # Filter by date
-            for grade in raw.get('grades', []):
-                if grade.get('date', '') >= since_date:
-                    new_grades.append(grade)
-            
-            for hw in raw.get('homework', []):
-                if hw.get('date', '') >= since_date:
-                    new_homework.append(hw)
-            
-            for msg in raw.get('messages', []):
-                if msg.get('date', '') >= since_date:
-                    new_messages.append(msg)
-            
-            for event in raw.get('calendar', []):
-                event_date = event.get('date', '')
-                if since_date <= event_date <= week_ahead and 'sprawdzian' in event.get('title', '').lower():
-                    upcoming_tests.append(event)
+        upcoming_tests = [
+            e for e in calendar 
+            if since_date <= e.get('date', '') <= week_ahead 
+            and 'sprawdzian' in e.get('title', '').lower()
+        ]
         
         return {
             "new_grades": new_grades,
@@ -360,7 +321,7 @@ class ActivityDeltaService:
 
 
 class MessageAnalysisService:
-    """Handles message content analysis"""
+    """Handles message content analysis - PURE DOMAIN"""
     
     def analyze_messages(self, raw_messages: List[Dict]) -> Dict:
         """Analyze messages for content and response requirements"""
@@ -386,36 +347,13 @@ class MessageAnalysisService:
             "enhanced_messages": enhanced_messages,
             "requiring_response": requiring_response
         }
-    
-    def extract_all_messages_from_data(self, raw_data: Dict) -> List[Dict]:
-        """Extract all messages from raw data"""
-        all_messages = []
-        for month_data in raw_data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            all_messages.extend(raw.get('messages', []))
-        return all_messages
 
 
 class CalendarDataService:
-    """Handles calendar data processing"""
+    """Handles calendar data processing - PURE DOMAIN"""
     
     def __init__(self):
         self.calendar_analyzer = CalendarAnalyzer()
-    
-    def extract_calendar_events_from_data(self, raw_data: Dict) -> List:
-        """Extract and convert calendar events from raw data"""
-        from ..models import CalendarEvent
-        
-        all_events = []
-        for month_data in raw_data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            for e in raw.get('calendar', []):
-                all_events.append(CalendarEvent(
-                    date=e.get('date', ''),
-                    title=e.get('title', ''),
-                    category=e.get('category', '')
-                ))
-        return all_events
     
     def analyze_calendar_events(self, events: List, days_ahead: int) -> Dict:
         """Analyze calendar events for upcoming items"""
@@ -430,7 +368,7 @@ class CalendarDataService:
 
 
 class DataExtractionService:
-    """Handles raw data extraction and processing"""
+    """Handles raw data extraction and processing - APPLICATION LAYER CONCERN"""
     
     def extract_raw_grades_from_data(self, raw_data: Dict) -> List[Dict]:
         """Extract raw grades from data"""
@@ -447,6 +385,93 @@ class DataExtractionService:
             raw = month_data.get('data', {}).get('rawData', {})
             items.extend(raw.get(data_type, []))
         return items
+    
+    def extract_all_messages_from_data(self, raw_data: Dict) -> List[Dict]:
+        """Extract all messages from raw data"""
+        all_messages = []
+        for month_data in raw_data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            all_messages.extend(raw.get('messages', []))
+        return all_messages
+    
+    def extract_calendar_events_from_data(self, raw_data: Dict) -> List:
+        """Extract and convert calendar events from raw data"""
+        from ..models import CalendarEvent
+        
+        all_events = []
+        for month_data in raw_data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            for e in raw.get('calendar', []):
+                all_events.append(CalendarEvent(
+                    date=e.get('date', ''),
+                    title=e.get('title', ''),
+                    category=e.get('category', '')
+                ))
+        return all_events
+    
+    def convert_raw_to_grades(self, raw_data: Dict) -> List[Grade]:
+        """Convert raw data to Grade domain objects"""
+        all_grades = []
+        for month_data in raw_data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            for g in raw.get('grades', []):
+                all_grades.append(Grade(
+                    subject=g.get('subject', ''),
+                    grade=g.get('grade', ''),
+                    date=g.get('date'),
+                    category=g.get('category', ''),
+                    weight=g.get('weight', ''),
+                    teacher=g.get('teacher', ''),
+                    comment=g.get('comment', '')
+                ))
+        return all_grades
+    
+    def extract_structured_data_for_urgent_analysis(self, raw_data: Dict) -> Dict:
+        """Extract structured data for urgent matters analysis"""
+        homework = []
+        messages = []
+        calendar = []
+        
+        for month_data in raw_data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            homework.extend(raw.get('homework', []))
+            messages.extend(raw.get('messages', []))
+            calendar.extend(raw.get('calendar', []))
+        
+        return {
+            "homework": homework,
+            "messages": messages,
+            "calendar": calendar
+        }
+    
+    def extract_structured_data_for_activity_delta(self, raw_data: Dict) -> Dict:
+        """Extract structured data for activity delta analysis"""
+        grades = []
+        homework = []
+        messages = []
+        calendar = []
+        
+        for month_data in raw_data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            grades.extend(raw.get('grades', []))
+            homework.extend(raw.get('homework', []))
+            messages.extend(raw.get('messages', []))
+            calendar.extend(raw.get('calendar', []))
+        
+        return {
+            "grades": grades,
+            "homework": homework,
+            "messages": messages,
+            "calendar": calendar
+        }
+    
+    def extract_grades_for_teacher_mapping(self, raw_data: Dict) -> List[Dict]:
+        """Extract grades for teacher mapping"""
+        all_grades = []
+        for month_data in raw_data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            all_grades.extend(raw.get('grades', []))
+        return all_grades
 
 
 class ResponseFormattingService:

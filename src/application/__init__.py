@@ -99,8 +99,8 @@ class AnalyzeGradesUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        # Use domain service for all grade processing
-        all_grades = self.grade_data_service.convert_raw_to_grades(data)
+        # Application layer converts raw data to domain objects
+        all_grades = self.data_extraction_service.convert_raw_to_grades(data)
         analysis = self.grade_data_service.analyze_grades_by_subject(all_grades)
         
         return {
@@ -159,8 +159,8 @@ class GetSemesterGradesSummaryUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        # Use domain services for all processing
-        all_grades = self.grade_data_service.convert_raw_to_grades(data)
+        # Application layer converts raw data to domain objects
+        all_grades = self.data_extraction_service.convert_raw_to_grades(data)
         deduplicated_grades = self.grade_data_service.analyzer.deduplicate_semester_grades(all_grades)
         
         return self.response_formatting_service.format_semester_grades_response(
@@ -218,8 +218,9 @@ class GetTeacherSubjectMappingUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        # Use domain service for mapping
-        teacher_subject = self.teacher_mapping_service.build_teacher_subject_mapping(data)
+        # Application layer extracts data and passes to domain service
+        grades = self.data_extraction_service.extract_grades_for_teacher_mapping(data)
+        teacher_subject = self.teacher_mapping_service.build_teacher_subject_mapping(grades)
         
         return {
             "child_name": child.name,
@@ -245,8 +246,13 @@ class AnalyzeUrgentMattersUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        # Use domain service for analysis
-        analysis = self.urgent_matters_service.analyze_urgent_matters(data)
+        # Application layer extracts structured data and passes to domain service
+        structured_data = self.data_extraction_service.extract_structured_data_for_urgent_analysis(data)
+        analysis = self.urgent_matters_service.analyze_urgent_matters(
+            structured_data["homework"], 
+            structured_data["messages"], 
+            structured_data["calendar"]
+        )
         
         return {
             "child_name": child.name,
@@ -271,8 +277,15 @@ class GetRecentActivityDeltaUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        # Use domain service for activity analysis
-        activity = self.activity_delta_service.get_activity_since_date(data, since_date)
+        # Application layer extracts structured data and passes to domain service
+        structured_data = self.data_extraction_service.extract_structured_data_for_activity_delta(data)
+        activity = self.activity_delta_service.get_activity_since_date(
+            structured_data["grades"],
+            structured_data["homework"], 
+            structured_data["messages"],
+            structured_data["calendar"],
+            since_date
+        )
         
         return {
             "child_name": child.name,
@@ -302,8 +315,8 @@ class GetMessagesWithContentUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        # Use domain services for all processing
-        all_messages = self.message_analysis_service.extract_all_messages_from_data(data)
+        # Application layer extracts data and passes to domain service
+        all_messages = self.data_extraction_service.extract_all_messages_from_data(data)
         analysis = self.message_analysis_service.analyze_messages(all_messages)
         
         return {
@@ -357,8 +370,8 @@ class GetCalendarEventsUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        # Use domain services for all processing
-        all_events = self.calendar_data_service.extract_calendar_events_from_data(data)
+        # Application layer extracts and converts data, then passes to domain service
+        all_events = self.data_extraction_service.extract_calendar_events_from_data(data)
         return self.calendar_data_service.analyze_calendar_events(all_events, days_ahead)
 
 
