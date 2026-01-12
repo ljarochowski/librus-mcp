@@ -142,7 +142,7 @@ class HomeworkTracker:
     
     def get_due_soon(self, homework: List[Homework], days: int = 3) -> List[Homework]:
         """Get homework due within N days"""
-        now = datetime.now()
+        now = datetime.now().date()
         cutoff = now + timedelta(days=days)
         
         due_soon = []
@@ -150,7 +150,7 @@ class HomeworkTracker:
             if not h.date_due:
                 continue
             try:
-                due = datetime.strptime(h.date_due, '%Y-%m-%d')
+                due = datetime.strptime(h.date_due, '%Y-%m-%d').date()
                 if now <= due <= cutoff:
                     due_soon.append(h)
             except:

@@ -246,10 +246,10 @@ class TestGradeValueEdgeCases:
         assert grade_none == GradeValue(None)
         assert grade_none != grade1
         
-        # Type safety
-        assert grade1 != "5"
-        assert grade1 != 5
-        assert grade1 != None
+        # Type safety - should not equal strings or numbers
+        assert not (grade1 == "5")
+        assert not (grade1 == 5)
+        assert not (grade1 == None)
 
 
 class TestSubjectNameEdgeCases:

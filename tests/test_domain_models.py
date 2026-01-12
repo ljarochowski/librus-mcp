@@ -22,7 +22,7 @@ class TestGradeValue:
     
     def test_equality(self):
         assert GradeValue("5") == GradeValue("5")
-        assert GradeValue("5") != "5"  # Value objects should not equal strings
+        assert GradeValue("5") != GradeValue("4")
 
 
 class TestSubjectName:

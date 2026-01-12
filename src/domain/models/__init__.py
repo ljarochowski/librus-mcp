@@ -56,7 +56,7 @@ class GradeValue:
     def __eq__(self, other) -> bool:
         if isinstance(other, GradeValue):
             return self._value == other._value
-        return self._value == other
+        return False
 
 
 class SubjectName:
@@ -71,7 +71,9 @@ class SubjectName:
     
     @property
     def normalized(self) -> str:
-        return self._name.lower().replace(" ", "_")
+        # Clean up multiple spaces first, then convert
+        cleaned = " ".join(self._name.split())
+        return cleaned.lower().replace(" ", "_")
     
     def __str__(self) -> str:
         return self._name
