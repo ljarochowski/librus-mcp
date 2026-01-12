@@ -49,7 +49,7 @@ class LibrusMcpServer:
         self.get_teacher_mapping = GetTeacherSubjectMappingUseCase(self.storage, self.config)
         self.analyze_urgent = AnalyzeUrgentMattersUseCase(self.storage, self.config)
         self.get_activity_delta = GetRecentActivityDeltaUseCase(self.storage, self.config)
-        self.generate_pdf = GeneratePdfReportUseCase()
+        self.generate_pdf = GeneratePdfReportUseCase(self.storage, self.config)
         self.get_messages_content = GetMessagesWithContentUseCase(self.storage, self.config)
         self.get_data_summary = GetDataSummaryUseCase(self.storage, self.config)
         self.list_children_uc = ListChildrenUseCase(self.storage, self.config)

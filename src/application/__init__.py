@@ -106,7 +106,7 @@ class AnalyzeGradesUseCase:
         return {
             "total_grades": len(all_grades),
             "overall_average": self.grade_data_service.analyzer.calculate_average(all_grades),
-            "at_risk_subjects": self.grade_data_service.analyzer.get_subjects_at_risk(all_grades),
+            "at_risk": self.grade_data_service.analyzer.get_subjects_at_risk(all_grades),
             "by_subject": analysis
         }
 
@@ -137,7 +137,7 @@ class GetGradesSummaryUseCase:
             "total_current_grades": len(separated["current"]),
             "recent_grades": separated["current"][-10:],
             "semester_grades": separated["semester"],
-            "subjects": separated["by_subject"]
+            "by_subject": separated["by_subject"]
         }
 
 
@@ -194,6 +194,7 @@ class GetGradeDetailsByDateUseCase:
             "child_name": child.name,
             "date_from": date_from,
             "date_to": date_to,
+            "date_range": f"{date_from} to {date_to}",
             "include_semester": include_semester,
             "total_grades": len(filtered_grades),
             "grades": filtered_grades
