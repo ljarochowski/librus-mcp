@@ -674,6 +674,9 @@ Error: {error_msg}"""
                                 upcoming_8_14_days.append(item)
                         except:
                             pass
+            
+            # Check upcoming tests
+            for event in raw.get('calendar', []):
                 event_date_str = event.get('date', '')
                 if event_date_str and 'sprawdzian' in event.get('title', '').lower():
                     try:
