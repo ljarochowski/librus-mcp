@@ -315,3 +315,298 @@ class GetSemesterGradesSummaryUseCase:
             "unique_subjects": unique_subjects,
             "grades": grades_dict
         }
+
+class GetGradeDetailsByDateUseCase:
+    """Get detailed grades for specific date range"""
+    
+    def __init__(self, storage: IStoragePort, config: IConfigPort):
+        self.storage = storage
+        self.config = config
+    
+    def execute(self, child_name: str, date_from: str, date_to: str, include_semester: bool) -> Dict:
+        child = self.config.get_child(child_name)
+        if not child:
+            return {"error": f"Child not found: {child_name}"}
+        
+        data = self.storage.get_recent_data(child.name, months=6)
+        if not data:
+            return {"error": f"No data found for {child.name}"}
+        
+        grades = []
+        for month_data in data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            month_grades = raw.get('grades', [])
+            
+            for grade in month_grades:
+                grade_date = grade.get('date', '')
+                if date_from <= grade_date <= date_to:
+                    # Filter semester grades if requested
+                    category = grade.get('category', '').lower()
+                    is_semester = any(x in category for x in ['śródroczn', 'roczn', 'końcow', 'przewidywan'])
+                    
+                    if include_semester or not is_semester:
+                        grades.append(grade)
+        
+        # Sort by date (newest first)
+        grades.sort(key=lambda x: x.get('date', ''), reverse=True)
+        
+        return {
+            "date_range": f"{date_from} to {date_to}",
+            "total_grades": len(grades),
+            "include_semester_grades": include_semester,
+            "grades": grades
+        }
+
+
+class GetTeacherSubjectMappingUseCase:
+    """Get mapping of teachers to subjects"""
+    
+    def __init__(self, storage: IStoragePort, config: IConfigPort):
+        self.storage = storage
+        self.config = config
+    
+    def execute(self, child_name: str) -> Dict:
+        child = self.config.get_child(child_name)
+        if not child:
+            return {"error": f"Child not found: {child_name}"}
+        
+        data = self.storage.get_recent_data(child.name, months=6)
+        if not data:
+            return {"error": f"No data found for {child.name}"}
+        
+        teacher_subject = {}
+        for month_data in data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            grades = raw.get('grades', [])
+            
+            for grade in grades:
+                teacher = grade.get('teacher', '').strip()
+                subject = grade.get('subject', '').strip()
+                if teacher and subject:
+                    teacher_subject[teacher] = subject
+        
+        return {
+            "child_name": child.name,
+            "teacher_subject_mapping": teacher_subject,
+            "total_mappings": len(teacher_subject)
+        }
+
+
+class AnalyzeUrgentMattersUseCase:
+    """Analyze and prioritize urgent matters"""
+    
+    def __init__(self, storage: IStoragePort, config: IConfigPort):
+        self.storage = storage
+        self.config = config
+    
+    def execute(self, child_name: str) -> Dict:
+        child = self.config.get_child(child_name)
+        if not child:
+            return {"error": f"Child not found: {child_name}"}
+        
+        data = self.storage.get_recent_data(child.name, months=1)
+        if not data:
+            return {"error": f"No data found for {child.name}"}
+        
+        from datetime import datetime, timedelta
+        today = datetime.now().date()
+        
+        critical_0_2_days = []
+        important_3_7_days = []
+        upcoming_8_14_days = []
+        
+        for month_data in data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            
+            # Check homework deadlines
+            for hw in raw.get('homework', []):
+                due_date_str = hw.get('due_date', '')
+                if due_date_str:
+                    try:
+                        due_date = datetime.strptime(due_date_str, '%Y-%m-%d').date()
+                        days_until = (due_date - today).days
+                        
+                        item = {
+                            "type": "homework",
+                            "subject": hw.get('subject', ''),
+                            "due": due_date_str,
+                            "title": hw.get('title', ''),
+                            "days_until": days_until
+                        }
+                        
+                        if 0 <= days_until <= 2:
+                            critical_0_2_days.append(item)
+                        elif 3 <= days_until <= 7:
+                            important_3_7_days.append(item)
+                        elif 8 <= days_until <= 14:
+                            upcoming_8_14_days.append(item)
+                    except:
+                        pass
+            
+            # Check messages for payment deadlines
+            for msg in raw.get('messages', []):
+                content = (msg.get('content', '') + ' ' + msg.get('title', '')).lower()
+                
+                if any(keyword in content for keyword in ['płatność', 'wpłata', 'opłata', 'składka', 'payment']):
+                    import re
+                    
+                    # Look for dates and amounts
+                    date_patterns = [
+                        r'(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})',
+                        r'(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})',
+                    ]
+                    
+                    amount_patterns = [
+                        r'(\d+)\s*zł',
+                        r'(\d+)\s*PLN',
+                        r'(\d+)[,.](\d{2})\s*zł',
+                    ]
+                    
+                    found_date = None
+                    found_amount = None
+                    
+                    for pattern in date_patterns:
+                        match = re.search(pattern, content)
+                        if match:
+                            try:
+                                if len(match.group(1)) == 4:
+                                    found_date = f"{match.group(1)}-{match.group(2).zfill(2)}-{match.group(3).zfill(2)}"
+                                else:
+                                    found_date = f"{match.group(3)}-{match.group(2).zfill(2)}-{match.group(1).zfill(2)}"
+                                break
+                            except:
+                                pass
+                    
+                    for pattern in amount_patterns:
+                        match = re.search(pattern, content)
+                        if match:
+                            if len(match.groups()) == 2:
+                                found_amount = f"{match.group(1)}.{match.group(2)} zł"
+                            else:
+                                found_amount = f"{match.group(1)} zł"
+                            break
+                    
+                    if found_date:
+                        try:
+                            due_date = datetime.strptime(found_date, '%Y-%m-%d').date()
+                            days_until = (due_date - today).days
+                            
+                            item = {
+                                "type": "payment",
+                                "amount": found_amount or "unknown",
+                                "due": found_date,
+                                "title": msg.get('title', ''),
+                                "sender": msg.get('sender', ''),
+                                "days_until": days_until
+                            }
+                            
+                            if 0 <= days_until <= 2:
+                                critical_0_2_days.append(item)
+                            elif 3 <= days_until <= 7:
+                                important_3_7_days.append(item)
+                            elif 8 <= days_until <= 14:
+                                upcoming_8_14_days.append(item)
+                        except:
+                            pass
+            
+            # Check upcoming tests
+            for event in raw.get('calendar', []):
+                event_date_str = event.get('date', '')
+                if event_date_str and 'sprawdzian' in event.get('title', '').lower():
+                    try:
+                        event_date = datetime.strptime(event_date_str, '%Y-%m-%d').date()
+                        days_until = (event_date - today).days
+                        
+                        item = {
+                            "type": "test",
+                            "subject": event.get('subject', ''),
+                            "date": event_date_str,
+                            "title": event.get('title', ''),
+                            "days_until": days_until
+                        }
+                        
+                        if 0 <= days_until <= 2:
+                            critical_0_2_days.append(item)
+                        elif 3 <= days_until <= 7:
+                            important_3_7_days.append(item)
+                        elif 8 <= days_until <= 14:
+                            upcoming_8_14_days.append(item)
+                    except:
+                        pass
+        
+        return {
+            "child_name": child.name,
+            "analysis_date": today.strftime('%Y-%m-%d'),
+            "critical_0_2_days": critical_0_2_days,
+            "important_3_7_days": important_3_7_days,
+            "upcoming_8_14_days": upcoming_8_14_days,
+            "summary": {
+                "critical_count": len(critical_0_2_days),
+                "important_count": len(important_3_7_days),
+                "upcoming_count": len(upcoming_8_14_days)
+            }
+        }
+
+class GetRecentActivityDeltaUseCase:
+    """Get summary of recent changes since date"""
+    
+    def __init__(self, storage: IStoragePort, config: IConfigPort):
+        self.storage = storage
+        self.config = config
+    
+    def execute(self, child_name: str, since_date: str) -> Dict:
+        child = self.config.get_child(child_name)
+        if not child:
+            return {"error": f"Child not found: {child_name}"}
+        
+        data = self.storage.get_recent_data(child.name, months=2)
+        if not data:
+            return {"error": f"No data found for {child.name}"}
+        
+        new_grades = []
+        new_homework = []
+        new_messages = []
+        upcoming_tests = []
+        
+        for month_data in data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            
+            # New grades
+            for grade in raw.get('grades', []):
+                if grade.get('date', '') >= since_date:
+                    new_grades.append(grade)
+            
+            # New homework
+            for hw in raw.get('homework', []):
+                if hw.get('date', '') >= since_date:
+                    new_homework.append(hw)
+            
+            # New messages
+            for msg in raw.get('messages', []):
+                if msg.get('date', '') >= since_date:
+                    new_messages.append(msg)
+            
+            # Upcoming tests (next 7 days)
+            from datetime import datetime, timedelta
+            today = datetime.now().date()
+            week_ahead = (today + timedelta(days=7)).strftime('%Y-%m-%d')
+            
+            for event in raw.get('calendar', []):
+                event_date = event.get('date', '')
+                if since_date <= event_date <= week_ahead and 'sprawdzian' in event.get('title', '').lower():
+                    upcoming_tests.append(event)
+        
+        return {
+            "child_name": child.name,
+            "since_date": since_date,
+            "new_grades": len(new_grades),
+            "new_homework": len(new_homework),
+            "new_messages": len(new_messages),
+            "upcoming_tests_this_week": len(upcoming_tests),
+            "details": {
+                "grades": new_grades[-10:],  # Last 10
+                "homework": new_homework,
+                "messages": new_messages[-5:],  # Last 5
+                "tests": upcoming_tests
+            }
+        }
