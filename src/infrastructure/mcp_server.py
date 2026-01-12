@@ -18,7 +18,11 @@ from ..application import (
     GetGradeDetailsByDateUseCase,
     GetTeacherSubjectMappingUseCase,
     AnalyzeUrgentMattersUseCase,
-    GetRecentActivityDeltaUseCase
+    GetRecentActivityDeltaUseCase,
+    GeneratePdfReportUseCase,
+    GetMessagesWithContentUseCase,
+    GetDataSummaryUseCase,
+    ListChildrenUseCase
 )
 
 
@@ -45,6 +49,10 @@ class LibrusMcpServer:
         self.get_teacher_mapping = GetTeacherSubjectMappingUseCase(self.storage, self.config)
         self.analyze_urgent = AnalyzeUrgentMattersUseCase(self.storage, self.config)
         self.get_activity_delta = GetRecentActivityDeltaUseCase(self.storage, self.config)
+        self.generate_pdf = GeneratePdfReportUseCase()
+        self.get_messages_content = GetMessagesWithContentUseCase(self.storage, self.config)
+        self.get_data_summary = GetDataSummaryUseCase(self.storage, self.config)
+        self.list_children_uc = ListChildrenUseCase(self.storage, self.config)
         
         # MCP server
         self.server = Server("librus-mcp")
@@ -289,14 +297,8 @@ class LibrusMcpServer:
             return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
         
         elif name == "list_children":
-            children = self.config.get_children()
-            lines = ["📚 Configured children:\n"]
-            for child in children:
-                state = self.storage.load_state(child.name)
-                last_scan = state.get("last_scrape_iso", "Never")
-                aliases = f" (aliases: {', '.join(child.aliases)})" if child.aliases else ""
-                lines.append(f"- **{child.name}**{aliases}\n  Last scan: {last_scan}")
-            return [TextContent(type="text", text="\n".join(lines))]
+            result = self.list_children_uc.execute()
+            return [TextContent(type="text", text=result)]
         
         elif name == "generate_pdf_report":
             result = self._generate_pdf_report(arguments["content"], arguments["output_path"])
@@ -337,58 +339,8 @@ class LibrusMcpServer:
         return [TextContent(type="text", text=f"Unknown tool: {name}")]
     
     def _generate_pdf_report(self, content: str, output_path: str) -> str:
-        """Generate PDF from markdown content with Dumbledore signature"""
-        try:
-            import markdown
-            from weasyprint import HTML, CSS
-            from pathlib import Path
-            import os
-            
-            # Expand ~ in path
-            output_path = os.path.expanduser(output_path)
-            
-            # Convert markdown to HTML
-            html_content = markdown.markdown(content)
-            
-            # Add Dumbledore signature
-            signature_path = Path(__file__).parent.parent.parent / "assets" / "dumbledore_signature.png"
-            if signature_path.exists():
-                html_content += f'<br><br><img src="{signature_path}" style="width: 200px; height: auto;">'
-            
-            # CSS for Polish fonts and styling
-            css = CSS(string="""
-                @page { margin: 2cm; }
-                body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.6; }
-                h1, h2, h3 { color: #2c3e50; }
-                strong { font-weight: bold; }
-                em { font-style: italic; }
-            """)
-            
-            # Generate PDF
-            HTML(string=html_content).write_pdf(output_path, stylesheets=[css])
-            
-            return f"✅ PDF generated: {output_path}"
-            
-        except ImportError as e:
-            missing_lib = str(e).split("'")[1] if "'" in str(e) else "unknown"
-            return f"❌ Missing Python dependencies for PDF generation: {e}.\n\nInstall with: pip install markdown weasyprint"
-        
-        except Exception as e:
-            error_msg = str(e)
-            if "libpango" in error_msg or "pango" in error_msg:
-                return f"""❌ PDF generation failed: Missing system libraries.
-
-macOS: brew install pango
-Ubuntu/Debian: sudo apt-get install libpango-1.0-0 libharfbuzz0b libpangoft2-1.0-0
-CentOS/RHEL: sudo yum install pango harfbuzz
-
-For detailed installation instructions, see:
-https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation
-
-Error: {error_msg}"""
-            else:
-                return f"❌ PDF generation failed: {error_msg}"
-    
+        """Generate PDF from markdown content"""
+        return self.generate_pdf.execute(content, output_path)    
     def _get_grade_details_by_date(self, child_name: str, date_from: str, date_to: str, include_semester: bool) -> dict:
         """Get detailed grades for specific date range"""
         return self.get_grade_details.execute(child_name, date_from, date_to, include_semester)
@@ -410,63 +362,12 @@ Error: {error_msg}"""
         return self.analyze_urgent.execute(child_name)
     
     def _get_messages_with_content(self, child_name: str) -> dict:
-        """Get messages with full content, not just summaries"""
-        child = self.config.get_child(child_name)
-        if not child:
-            return {"error": f"Child not found: {child_name}"}
-        
-        data = self.storage.get_recent_data(child.name, months=2)
-        if not data:
-            return {"error": f"No data found for {child.name}"}
-        
-        messages = []
-        for month_data in data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            month_messages = raw.get('messages', [])
-            messages.extend(month_messages)
-        
-        # Sort by date (newest first)
-        messages.sort(key=lambda x: x.get('date', ''), reverse=True)
-        
-        # Enhance with full content where available
-        enhanced_messages = []
-        for msg in messages:
-            enhanced_msg = msg.copy()
-            # If content is empty but we have title, use title as content
-            if not enhanced_msg.get('content') and enhanced_msg.get('title'):
-                enhanced_msg['content'] = enhanced_msg['title']
-            enhanced_messages.append(enhanced_msg)
-        
-        # Check for messages requiring response
-        requiring_response = []
-        for msg in enhanced_messages:
-            content = (msg.get('content', '') + ' ' + msg.get('title', '')).lower()
-            if any(keyword in content for keyword in ['proszę o odpowiedź', 'odpowiedz', 'potwierdź', 'zgoda', 'płatność']):
-                requiring_response.append(msg)
-        
-        return {
-            "total_messages": len(enhanced_messages),
-            "messages": enhanced_messages[:50],  # Last 50 messages
-            "requiring_response_count": len(requiring_response),
-            "requiring_response": requiring_response
-        }
+        """Get messages with full content"""
+        return self.get_messages_content.execute(child_name)
     
     def _get_data_summary(self, child_name: str, data_type: str) -> dict:
         """Generic helper to get data summaries"""
-        child = self.config.get_child(child_name)
-        if not child:
-            return {"error": f"Child not found: {child_name}"}
-        
-        data = self.storage.get_recent_data(child.name, months=2)
-        if not data:
-            return {"error": f"No data found for {child.name}"}
-        
-        items = []
-        for month_data in data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            items.extend(raw.get(data_type, []))
-        
-        return {"total": len(items), "items": items[-20:]}
+        return self.get_data_summary.execute(child_name, data_type)
     
     async def run(self):
         from mcp.server.stdio import stdio_server

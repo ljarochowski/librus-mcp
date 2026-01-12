@@ -610,3 +610,149 @@ class GetRecentActivityDeltaUseCase:
                 "tests": upcoming_tests
             }
         }
+
+class GeneratePdfReportUseCase:
+    """Generate PDF report from markdown content"""
+    
+    def execute(self, content: str, output_path: str) -> str:
+        try:
+            import markdown
+            from weasyprint import HTML, CSS
+            from pathlib import Path
+            import os
+            
+            # Expand ~ in path
+            output_path = os.path.expanduser(output_path)
+            
+            # Convert markdown to HTML
+            html_content = markdown.markdown(content)
+            
+            # Add Dumbledore signature
+            signature_path = Path(__file__).parent.parent.parent / "assets" / "dumbledore_signature.png"
+            if signature_path.exists():
+                html_content += f'<br><br><img src="{signature_path}" style="width: 200px; height: auto;">'
+            
+            # CSS for Polish fonts and styling
+            css = CSS(string="""
+                @page { margin: 2cm; }
+                body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.6; }
+                h1, h2, h3 { color: #2c3e50; }
+                strong { font-weight: bold; }
+                em { font-style: italic; }
+            """)
+            
+            # Generate PDF
+            HTML(string=html_content).write_pdf(output_path, stylesheets=[css])
+            
+            return f"✅ PDF generated: {output_path}"
+            
+        except ImportError as e:
+            missing_lib = str(e).split("'")[1] if "'" in str(e) else "unknown"
+            return f"❌ Missing Python dependencies for PDF generation: {e}.\n\nInstall with: pip install markdown weasyprint"
+        
+        except Exception as e:
+            error_msg = str(e)
+            if "libpango" in error_msg or "pango" in error_msg:
+                return f"""❌ PDF generation failed: Missing system libraries.
+
+macOS: brew install pango
+Ubuntu/Debian: sudo apt-get install libpango-1.0-0 libharfbuzz0b libpangoft2-1.0-0
+CentOS/RHEL: sudo yum install pango harfbuzz
+
+For detailed installation instructions, see:
+https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation
+
+Error: {error_msg}"""
+            else:
+                return f"❌ PDF generation failed: {error_msg}"
+
+
+class GetMessagesWithContentUseCase:
+    """Get messages with full content and response detection"""
+    
+    def __init__(self, storage: IStoragePort, config: IConfigPort):
+        self.storage = storage
+        self.config = config
+    
+    def execute(self, child_name: str) -> Dict:
+        child = self.config.get_child(child_name)
+        if not child:
+            return {"error": f"Child not found: {child_name}"}
+        
+        data = self.storage.get_recent_data(child.name, months=2)
+        if not data:
+            return {"error": f"No data found for {child.name}"}
+        
+        messages = []
+        for month_data in data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            month_messages = raw.get('messages', [])
+            messages.extend(month_messages)
+        
+        # Sort by date (newest first)
+        messages.sort(key=lambda x: x.get('date', ''), reverse=True)
+        
+        # Enhance with full content where available
+        enhanced_messages = []
+        for msg in messages:
+            enhanced_msg = msg.copy()
+            # If content is empty but we have title, use title as content
+            if not enhanced_msg.get('content') and enhanced_msg.get('title'):
+                enhanced_msg['content'] = enhanced_msg['title']
+            enhanced_messages.append(enhanced_msg)
+        
+        # Check for messages requiring response
+        requiring_response = []
+        for msg in enhanced_messages:
+            content = (msg.get('content', '') + ' ' + msg.get('title', '')).lower()
+            if any(keyword in content for keyword in ['proszę o odpowiedź', 'odpowiedz', 'potwierdź', 'zgoda', 'płatność']):
+                requiring_response.append(msg)
+        
+        return {
+            "total_messages": len(enhanced_messages),
+            "messages": enhanced_messages[:50],  # Last 50 messages
+            "requiring_response_count": len(requiring_response),
+            "requiring_response": requiring_response
+        }
+
+
+class GetDataSummaryUseCase:
+    """Get generic data summary"""
+    
+    def __init__(self, storage: IStoragePort, config: IConfigPort):
+        self.storage = storage
+        self.config = config
+    
+    def execute(self, child_name: str, data_type: str) -> Dict:
+        child = self.config.get_child(child_name)
+        if not child:
+            return {"error": f"Child not found: {child_name}"}
+        
+        data = self.storage.get_recent_data(child.name, months=2)
+        if not data:
+            return {"error": f"No data found for {child.name}"}
+        
+        items = []
+        for month_data in data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            items.extend(raw.get(data_type, []))
+        
+        return {"total": len(items), "items": items[-20:]}
+
+
+class ListChildrenUseCase:
+    """List all configured children with their status"""
+    
+    def __init__(self, storage: IStoragePort, config: IConfigPort):
+        self.storage = storage
+        self.config = config
+    
+    def execute(self) -> str:
+        children = self.config.get_children()
+        lines = ["📚 Configured children:\n"]
+        for child in children:
+            state = self.storage.load_state(child.name)
+            last_scan = state.get("last_scrape_iso", "Never")
+            aliases = f" (aliases: {', '.join(child.aliases)})" if child.aliases else ""
+            lines.append(f"- **{child.name}**{aliases}\n  Last scan: {last_scan}")
+        return "\n".join(lines)
