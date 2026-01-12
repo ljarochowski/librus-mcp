@@ -175,13 +175,13 @@ class CalendarAnalyzer:
         return self._get_upcoming(events, days)
     
     def _get_upcoming(self, events: List[CalendarEvent], days: int) -> List[CalendarEvent]:
-        now = datetime.now()
+        now = datetime.now().date()
         cutoff = now + timedelta(days=days)
         
         upcoming = []
         for e in events:
             try:
-                event_date = datetime.strptime(e.date, '%Y-%m-%d')
+                event_date = datetime.strptime(e.date, '%Y-%m-%d').date()
                 if now <= event_date <= cutoff:
                     upcoming.append(e)
             except:

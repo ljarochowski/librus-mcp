@@ -50,6 +50,9 @@ class GradeValue:
             return self._value == other._value
         return False
     
+    def __ne__(self, other) -> bool:
+        return not self.__eq__(other)
+    
     def __eq__(self, other) -> bool:
         if isinstance(other, GradeValue):
             return self._value == other._value

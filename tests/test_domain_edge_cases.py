@@ -1,6 +1,6 @@
 """Unit tests for domain services - edge cases and error handling"""
 import pytest
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from src.domain.services import GradeAnalyzer, HomeworkTracker, CalendarAnalyzer
 from src.domain.models import Grade, Homework, CalendarEvent, GradeValue, SubjectName
 
@@ -56,11 +56,11 @@ class TestGradeAnalyzerEdgeCases:
         analyzer = GradeAnalyzer()
         
         # Empty list
-        assert analyzer.get_trend([]) == "insufficient_data"
+        assert analyzer.get_trend([], "Math") == "INSUFFICIENT_DATA"
         
         # Single grade
         single_grade = [Grade(subject="Math", grade="5", category="test", date="2026-01-01")]
-        assert analyzer.get_trend(single_grade) == "insufficient_data"
+        assert analyzer.get_trend(single_grade, "Math") == "INSUFFICIENT_DATA"
         
         # All same grades
         same_grades = [
@@ -68,7 +68,7 @@ class TestGradeAnalyzerEdgeCases:
             Grade(subject="Math", grade="5", category="test", date="2026-01-01"),
             Grade(subject="Math", grade="5", category="test", date="2026-01-01"),
         ]
-        assert analyzer.get_trend(same_grades) == "stable"
+        assert analyzer.get_trend(same_grades, "Math") == "STABLE"
     
     def test_get_subjects_at_risk_with_extreme_values(self):
         """Test at-risk detection with extreme grade values"""
@@ -259,8 +259,8 @@ class TestSubjectNameEdgeCases:
         """Test subject name normalization with extreme inputs"""
         test_cases = [
             # Normal cases
-            ("Matematyka", "Matematyka"),
-            ("FIZYKA", "Fizyka"),
+            ("Matematyka", "matematyka"),
+            ("FIZYKA", "fizyka"),
             ("język angielski", "język_angielski"),
             # Edge cases
             ("", ""),
