@@ -1,4 +1,4 @@
-"""Application layer - use cases / orchestration"""
+"""Clean application layer - use cases with proper orchestration only"""
 from datetime import datetime
 from typing import Dict, Optional
 
@@ -12,7 +12,7 @@ from ..domain.services import (
 
 
 class ScrapeChildUseCase:
-    """Use case: Scrape data for a child"""
+    """Use case: Scrape data for a child - CLEAN VERSION"""
     
     def __init__(self, browser: IBrowserPort, storage: IStoragePort, config: IConfigPort):
         self.browser = browser
@@ -22,7 +22,7 @@ class ScrapeChildUseCase:
         self.grade_history_service = GradeHistoryService()
         self.session_service = SessionService()
         self.scrape_result_service = ScrapeResultService()
-    
+
     async def execute(self, child_name: str, force_full: bool = False) -> Dict:
         child = self.config.get_child(child_name)
         if not child:
@@ -38,7 +38,7 @@ class ScrapeChildUseCase:
                 "child_name": child.name,
                 "message": session_check["message"]
             }
-        
+
         # Get last scrape date
         state = self.storage.load_state(child.name)
         last_scrape = None if force_full else state.get("last_scrape_iso")
@@ -49,12 +49,12 @@ class ScrapeChildUseCase:
         # Save result
         self.storage.save_result(child.name, result)
         
-        # Update state
-        state["last_scrape_iso"] = result.timestamp.strftime("%Y-%m-%d %H:%M:%S")
-        self.storage.save_state(child.name, state)
-        
-        # Update memory with analysis
+        # Update memory using domain service
         self._update_memory(child.name, result)
+        
+        # Update state
+        state["last_scrape_iso"] = result.timestamp.isoformat()
+        self.storage.save_state(child.name, state)
         
         # Determine mode using domain service
         mode = self.scrape_result_service.determine_scrape_mode(force_full, last_scrape)
@@ -81,40 +81,14 @@ class ScrapeChildUseCase:
         self.storage.save_memory(child_name, memory)
 
 
-class LoginChildUseCase:
-    """Use case: Login for a child"""
-    
-    def __init__(self, browser: IBrowserPort, config: IConfigPort):
-        self.browser = browser
-        self.config = config
-    
-    async def execute(self, child_name: str) -> Dict:
-        child = self.config.get_child(child_name)
-        if not child:
-            return {"status": "error", "message": f"Child not found: {child_name}"}
-        
-        if not child.has_credentials:
-            return {
-                "status": "error",
-                "message": f"No credentials configured for {child.name} in config.yaml"
-            }
-        
-        success = await self.browser.login(child)
-        
-        if success:
-            return {"status": "success", "message": f"Login successful for {child.name}"}
-        else:
-            return {"status": "error", "message": f"Login failed for {child.name}"}
-
-
 class AnalyzeGradesUseCase:
-    """Use case: Analyze grades for a child"""
+    """Use case: Analyze grades and trends - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
         self.storage = storage
         self.config = config
-        self.analyzer = GradeAnalyzer()
-    
+        self.grade_data_service = GradeDataService()
+
     def execute(self, child_name: str) -> Dict:
         child = self.config.get_child(child_name)
         if not child:
@@ -124,52 +98,26 @@ class AnalyzeGradesUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        # Extract grades
-        from ..domain.models import Grade
-        all_grades = []
-        for month_data in data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            for g in raw.get('grades', []):
-                all_grades.append(Grade(
-                    subject=g.get('subject', ''),
-                    grade=g.get('grade', ''),
-                    date=g.get('date'),
-                    category=g.get('category', ''),
-                    weight=g.get('weight', ''),
-                    teacher=g.get('teacher', '')
-                ))
-        
-        # Analyze by subject
-        subjects = set(g.subject for g in all_grades if not g.is_semester_grade)
-        analysis = {}
-        
-        for subject in subjects:
-            avg = self.analyzer.calculate_average(all_grades, subject)
-            trend = self.analyzer.get_trend(all_grades, subject)
-            subject_grades = [g for g in all_grades if g.subject == subject and not g.is_semester_grade]
-            
-            analysis[subject] = {
-                "average": avg,
-                "trend": trend,
-                "count": len(subject_grades),
-                "recent": [g.grade for g in sorted(subject_grades, key=lambda x: x.date or '')[-5:]]
-            }
+        # Use domain service for all grade processing
+        all_grades = self.grade_data_service.convert_raw_to_grades(data)
+        analysis = self.grade_data_service.analyze_grades_by_subject(all_grades)
         
         return {
             "total_grades": len(all_grades),
-            "overall_average": self.analyzer.calculate_average(all_grades),
-            "at_risk": self.analyzer.get_subjects_at_risk(all_grades),
+            "overall_average": self.grade_data_service.analyzer.calculate_average(all_grades),
+            "at_risk_subjects": self.grade_data_service.analyzer.get_subjects_at_risk(all_grades),
             "by_subject": analysis
         }
 
 
 class GetGradesSummaryUseCase:
-    """Use case: Get grades summary for a child"""
+    """Use case: Get grades summary - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
         self.storage = storage
         self.config = config
-    
+        self.grade_data_service = GradeDataService()
+
     def execute(self, child_name: str) -> Dict:
         child = self.config.get_child(child_name)
         if not child:
@@ -179,87 +127,30 @@ class GetGradesSummaryUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
+        # Use domain service for grade separation
         all_grades = []
         for month_data in data.values():
             raw = month_data.get('data', {}).get('rawData', {})
             all_grades.extend(raw.get('grades', []))
         
-        # Separate current vs semester grades
-        current = []
-        semester = {}
-        
-        for g in all_grades:
-            cat = g.get('category', '').lower()
-            subj = g.get('subject', 'Unknown')
-            
-            if any(x in cat for x in ['śródroczn', 'roczn', 'końcow', 'przewidywan']):
-                if subj not in semester:
-                    semester[subj] = []
-                semester[subj].append(g)
-            else:
-                current.append(g)
-        
-        # Group by subject
-        by_subject = {}
-        for g in current:
-            subj = g.get('subject', 'Unknown')
-            if subj not in by_subject:
-                by_subject[subj] = []
-            by_subject[subj].append(g)
+        separated = self.grade_data_service.separate_current_and_semester_grades(all_grades)
         
         return {
-            "total_current_grades": len(current),
-            "recent_grades": current[-10:],
-            "semester_grades": semester,
-            "by_subject": by_subject
-        }
-
-
-class GetCalendarEventsUseCase:
-    """Use case: Get upcoming calendar events"""
-    
-    def __init__(self, storage: IStoragePort, config: IConfigPort):
-        self.storage = storage
-        self.config = config
-        self.analyzer = CalendarAnalyzer()
-    
-    def execute(self, child_name: str, days_ahead: int = 14) -> Dict:
-        child = self.config.get_child(child_name)
-        if not child:
-            return {"error": f"Child not found: {child_name}"}
-        
-        data = self.storage.get_recent_data(child.name, months=2)
-        if not data:
-            return {"error": f"No data found for {child.name}"}
-        
-        from ..domain.models import CalendarEvent
-        all_events = []
-        for month_data in data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            for e in raw.get('calendar', []):
-                all_events.append(CalendarEvent(
-                    date=e.get('date', ''),
-                    title=e.get('title', ''),
-                    category=e.get('category', '')
-                ))
-        
-        upcoming = self.analyzer.get_upcoming(all_events, days_ahead)
-        tests = self.analyzer.get_upcoming_tests(all_events, days_ahead)
-        
-        return {
-            "total_events": len(all_events),
-            "upcoming": [{"date": e.date, "title": e.title} for e in upcoming],
-            "upcoming_tests": [{"date": e.date, "title": e.title} for e in tests]
+            "total_current_grades": len(separated["current"]),
+            "recent_grades": separated["current"][-10:],
+            "semester_grades": separated["semester"],
+            "subjects": separated["by_subject"]
         }
 
 
 class GetSemesterGradesSummaryUseCase:
-    """Get semester grades summary with deduplication"""
+    """Use case: Get semester grades with deduplication - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
         self.storage = storage
         self.config = config
-    
+        self.grade_data_service = GradeDataService()
+
     def execute(self, child_name: str, semester: int = 1, year: str = None) -> Dict:
         child = self.config.get_child(child_name)
         if not child:
@@ -269,29 +160,11 @@ class GetSemesterGradesSummaryUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        # Convert raw data to domain objects
-        all_grades = []
-        for month_data in data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            grades_data = raw.get('grades', [])
-            
-            for grade_data in grades_data:
-                grade = Grade(
-                    subject=grade_data.get('subject', ''),
-                    grade=grade_data.get('grade', ''),
-                    date=grade_data.get('date'),
-                    category=grade_data.get('category', ''),
-                    weight=grade_data.get('weight', ''),
-                    teacher=grade_data.get('teacher', ''),
-                    comment=grade_data.get('comment', '')
-                )
-                all_grades.append(grade)
+        # Use domain service for grade processing
+        all_grades = self.grade_data_service.convert_raw_to_grades(data)
+        deduplicated_grades = self.grade_data_service.analyzer.deduplicate_semester_grades(all_grades)
         
-        # Use domain services for business logic
-        analyzer = GradeAnalyzer()
-        deduplicated_grades = analyzer.deduplicate_semester_grades(all_grades)
-        
-        # Convert back to response format
+        # Convert to response format
         grades_dict = []
         for grade in deduplicated_grades:
             grades_dict.append({
@@ -316,12 +189,14 @@ class GetSemesterGradesSummaryUseCase:
             "grades": grades_dict
         }
 
+
 class GetGradeDetailsByDateUseCase:
-    """Get detailed grades for specific date range"""
+    """Use case: Get grades by date range - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
         self.storage = storage
         self.config = config
+        self.grade_data_service = GradeDataService()
     
     def execute(self, child_name: str, date_from: str, date_to: str, include_semester: bool) -> Dict:
         child = self.config.get_child(child_name)
@@ -332,39 +207,32 @@ class GetGradeDetailsByDateUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        grades = []
+        # Use domain service for filtering
+        all_grades = []
         for month_data in data.values():
             raw = month_data.get('data', {}).get('rawData', {})
-            month_grades = raw.get('grades', [])
-            
-            for grade in month_grades:
-                grade_date = grade.get('date', '')
-                if date_from <= grade_date <= date_to:
-                    # Filter semester grades if requested
-                    category = grade.get('category', '').lower()
-                    is_semester = any(x in category for x in ['śródroczn', 'roczn', 'końcow', 'przewidywan'])
-                    
-                    if include_semester or not is_semester:
-                        grades.append(grade)
+            all_grades.extend(raw.get('grades', []))
         
-        # Sort by date (newest first)
-        grades.sort(key=lambda x: x.get('date', ''), reverse=True)
+        filtered_grades = self.grade_data_service.filter_grades_by_date(all_grades, date_from, date_to, include_semester)
         
         return {
-            "date_range": f"{date_from} to {date_to}",
-            "total_grades": len(grades),
-            "include_semester_grades": include_semester,
-            "grades": grades
+            "child_name": child.name,
+            "date_from": date_from,
+            "date_to": date_to,
+            "include_semester": include_semester,
+            "total_grades": len(filtered_grades),
+            "grades": filtered_grades
         }
 
 
 class GetTeacherSubjectMappingUseCase:
-    """Get mapping of teachers to subjects"""
+    """Use case: Get teacher to subject mapping - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
         self.storage = storage
         self.config = config
-    
+        self.teacher_mapping_service = TeacherMappingService()
+
     def execute(self, child_name: str) -> Dict:
         child = self.config.get_child(child_name)
         if not child:
@@ -374,16 +242,8 @@ class GetTeacherSubjectMappingUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        teacher_subject = {}
-        for month_data in data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            grades = raw.get('grades', [])
-            
-            for grade in grades:
-                teacher = grade.get('teacher', '').strip()
-                subject = grade.get('subject', '').strip()
-                if teacher and subject:
-                    teacher_subject[teacher] = subject
+        # Use domain service for mapping
+        teacher_subject = self.teacher_mapping_service.build_teacher_subject_mapping(data)
         
         return {
             "child_name": child.name,
@@ -393,12 +253,13 @@ class GetTeacherSubjectMappingUseCase:
 
 
 class AnalyzeUrgentMattersUseCase:
-    """Analyze and prioritize urgent matters"""
+    """Use case: Analyze urgent matters - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
         self.storage = storage
         self.config = config
-    
+        self.urgent_matters_service = UrgentMattersService()
+
     def execute(self, child_name: str) -> Dict:
         child = self.config.get_child(child_name)
         if not child:
@@ -408,152 +269,23 @@ class AnalyzeUrgentMattersUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        from datetime import datetime, timedelta
-        today = datetime.now().date()
-        
-        critical_0_2_days = []
-        important_3_7_days = []
-        upcoming_8_14_days = []
-        
-        for month_data in data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            
-            # Check homework deadlines
-            for hw in raw.get('homework', []):
-                due_date_str = hw.get('due_date', '')
-                if due_date_str:
-                    try:
-                        due_date = datetime.strptime(due_date_str, '%Y-%m-%d').date()
-                        days_until = (due_date - today).days
-                        
-                        item = {
-                            "type": "homework",
-                            "subject": hw.get('subject', ''),
-                            "due": due_date_str,
-                            "title": hw.get('title', ''),
-                            "days_until": days_until
-                        }
-                        
-                        if 0 <= days_until <= 2:
-                            critical_0_2_days.append(item)
-                        elif 3 <= days_until <= 7:
-                            important_3_7_days.append(item)
-                        elif 8 <= days_until <= 14:
-                            upcoming_8_14_days.append(item)
-                    except:
-                        pass
-            
-            # Check messages for payment deadlines
-            for msg in raw.get('messages', []):
-                content = (msg.get('content', '') + ' ' + msg.get('title', '')).lower()
-                
-                if any(keyword in content for keyword in ['płatność', 'wpłata', 'opłata', 'składka', 'payment']):
-                    import re
-                    
-                    # Look for dates and amounts
-                    date_patterns = [
-                        r'(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})',
-                        r'(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})',
-                    ]
-                    
-                    amount_patterns = [
-                        r'(\d+)\s*zł',
-                        r'(\d+)\s*PLN',
-                        r'(\d+)[,.](\d{2})\s*zł',
-                    ]
-                    
-                    found_date = None
-                    found_amount = None
-                    
-                    for pattern in date_patterns:
-                        match = re.search(pattern, content)
-                        if match:
-                            try:
-                                if len(match.group(1)) == 4:
-                                    found_date = f"{match.group(1)}-{match.group(2).zfill(2)}-{match.group(3).zfill(2)}"
-                                else:
-                                    found_date = f"{match.group(3)}-{match.group(2).zfill(2)}-{match.group(1).zfill(2)}"
-                                break
-                            except:
-                                pass
-                    
-                    for pattern in amount_patterns:
-                        match = re.search(pattern, content)
-                        if match:
-                            if len(match.groups()) == 2:
-                                found_amount = f"{match.group(1)}.{match.group(2)} zł"
-                            else:
-                                found_amount = f"{match.group(1)} zł"
-                            break
-                    
-                    if found_date:
-                        try:
-                            due_date = datetime.strptime(found_date, '%Y-%m-%d').date()
-                            days_until = (due_date - today).days
-                            
-                            item = {
-                                "type": "payment",
-                                "amount": found_amount or "unknown",
-                                "due": found_date,
-                                "title": msg.get('title', ''),
-                                "sender": msg.get('sender', ''),
-                                "days_until": days_until
-                            }
-                            
-                            if 0 <= days_until <= 2:
-                                critical_0_2_days.append(item)
-                            elif 3 <= days_until <= 7:
-                                important_3_7_days.append(item)
-                            elif 8 <= days_until <= 14:
-                                upcoming_8_14_days.append(item)
-                        except:
-                            pass
-            
-            # Check upcoming tests
-            for event in raw.get('calendar', []):
-                event_date_str = event.get('date', '')
-                if event_date_str and 'sprawdzian' in event.get('title', '').lower():
-                    try:
-                        event_date = datetime.strptime(event_date_str, '%Y-%m-%d').date()
-                        days_until = (event_date - today).days
-                        
-                        item = {
-                            "type": "test",
-                            "subject": event.get('subject', ''),
-                            "date": event_date_str,
-                            "title": event.get('title', ''),
-                            "days_until": days_until
-                        }
-                        
-                        if 0 <= days_until <= 2:
-                            critical_0_2_days.append(item)
-                        elif 3 <= days_until <= 7:
-                            important_3_7_days.append(item)
-                        elif 8 <= days_until <= 14:
-                            upcoming_8_14_days.append(item)
-                    except:
-                        pass
+        # Use domain service for analysis
+        analysis = self.urgent_matters_service.analyze_urgent_matters(data)
         
         return {
             "child_name": child.name,
-            "analysis_date": today.strftime('%Y-%m-%d'),
-            "critical_0_2_days": critical_0_2_days,
-            "important_3_7_days": important_3_7_days,
-            "upcoming_8_14_days": upcoming_8_14_days,
-            "summary": {
-                "critical_count": len(critical_0_2_days),
-                "important_count": len(important_3_7_days),
-                "upcoming_count": len(upcoming_8_14_days)
-            }
+            **analysis
         }
 
+
 class GetRecentActivityDeltaUseCase:
-    """Get summary of recent changes since date"""
+    """Use case: Get recent activity delta - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
         self.storage = storage
         self.config = config
-    
+        self.activity_delta_service = ActivityDeltaService()
+
     def execute(self, child_name: str, since_date: str) -> Dict:
         child = self.config.get_child(child_name)
         if not child:
@@ -563,66 +295,131 @@ class GetRecentActivityDeltaUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        new_grades = []
-        new_homework = []
-        new_messages = []
-        upcoming_tests = []
-        
-        for month_data in data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            
-            # New grades
-            for grade in raw.get('grades', []):
-                if grade.get('date', '') >= since_date:
-                    new_grades.append(grade)
-            
-            # New homework
-            for hw in raw.get('homework', []):
-                if hw.get('date', '') >= since_date:
-                    new_homework.append(hw)
-            
-            # New messages
-            for msg in raw.get('messages', []):
-                if msg.get('date', '') >= since_date:
-                    new_messages.append(msg)
-            
-            # Upcoming tests (next 7 days)
-            from datetime import datetime, timedelta
-            today = datetime.now().date()
-            week_ahead = (today + timedelta(days=7)).strftime('%Y-%m-%d')
-            
-            for event in raw.get('calendar', []):
-                event_date = event.get('date', '')
-                if since_date <= event_date <= week_ahead and 'sprawdzian' in event.get('title', '').lower():
-                    upcoming_tests.append(event)
+        # Use domain service for activity analysis
+        activity = self.activity_delta_service.get_activity_since_date(data, since_date)
         
         return {
             "child_name": child.name,
             "since_date": since_date,
-            "new_grades": len(new_grades),
-            "new_homework": len(new_homework),
-            "new_messages": len(new_messages),
-            "upcoming_tests_this_week": len(upcoming_tests),
-            "details": {
-                "grades": new_grades[-10:],  # Last 10
-                "homework": new_homework,
-                "messages": new_messages[-5:],  # Last 5
-                "tests": upcoming_tests
-            }
+            "new_grades": len(activity["new_grades"]),
+            "new_homework": len(activity["new_homework"]),
+            "new_messages": len(activity["new_messages"]),
+            "upcoming_tests": len(activity["upcoming_tests"]),
+            "details": activity
         }
 
-class GeneratePdfReportUseCase:
-    """Generate PDF report from markdown content"""
+
+class GetMessagesWithContentUseCase:
+    """Use case: Get messages with content analysis - CLEAN VERSION"""
     
+    def __init__(self, storage: IStoragePort, config: IConfigPort):
+        self.storage = storage
+        self.config = config
+        self.message_analysis_service = MessageAnalysisService()
+
+    def execute(self, child_name: str) -> Dict:
+        child = self.config.get_child(child_name)
+        if not child:
+            return {"error": f"Child not found: {child_name}"}
+        
+        data = self.storage.get_recent_data(child.name, months=2)
+        if not data:
+            return {"error": f"No data found for {child.name}"}
+        
+        # Collect all messages
+        all_messages = []
+        for month_data in data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            all_messages.extend(raw.get('messages', []))
+        
+        # Use domain service for analysis
+        analysis = self.message_analysis_service.analyze_messages(all_messages)
+        
+        return {
+            "total_messages": len(analysis["enhanced_messages"]),
+            "messages": analysis["enhanced_messages"][:50],
+            "requiring_response_count": len(analysis["requiring_response"]),
+            "requiring_response": analysis["requiring_response"]
+        }
+
+
+class LoginChildUseCase:
+    """Use case: Login child - CLEAN VERSION"""
+    
+    def __init__(self, browser: IBrowserPort, config: IConfigPort):
+        self.browser = browser
+        self.config = config
+
+    async def execute(self, child_name: str) -> Dict:
+        child = self.config.get_child(child_name)
+        if not child:
+            return {"status": "error", "message": f"Child not found: {child_name}"}
+        
+        if not child.has_credentials:
+            return {
+                "status": "error",
+                "message": f"No credentials configured for {child.name} in config.yaml"
+            }
+        
+        success = await self.browser.login(child)
+        
+        if success:
+            return {"status": "success", "message": f"Login successful for {child.name}"}
+        else:
+            return {"status": "error", "message": f"Login failed for {child.name}"}
+
+
+class GetCalendarEventsUseCase:
+    """Use case: Get calendar events - CLEAN VERSION"""
+    
+    def __init__(self, storage: IStoragePort, config: IConfigPort):
+        self.storage = storage
+        self.config = config
+        self.calendar_analyzer = CalendarAnalyzer()
+
+    def execute(self, child_name: str, days_ahead: int = 14) -> Dict:
+        child = self.config.get_child(child_name)
+        if not child:
+            return {"error": f"Child not found: {child_name}"}
+        
+        data = self.storage.get_recent_data(child.name, months=2)
+        if not data:
+            return {"error": f"No data found for {child.name}"}
+        
+        from ..domain.models import CalendarEvent
+        all_events = []
+        for month_data in data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            for e in raw.get('calendar', []):
+                all_events.append(CalendarEvent(
+                    date=e.get('date', ''),
+                    title=e.get('title', ''),
+                    category=e.get('category', '')
+                ))
+        
+        upcoming = self.calendar_analyzer.get_upcoming(all_events, days_ahead)
+        tests = self.calendar_analyzer.get_upcoming_tests(all_events, days_ahead)
+        
+        return {
+            "total_events": len(all_events),
+            "upcoming": [{"date": e.date, "title": e.title} for e in upcoming],
+            "upcoming_tests": [{"date": e.date, "title": e.title} for e in tests]
+        }
+
+
+class GeneratePdfReportUseCase:
+    """Use case: Generate PDF report - CLEAN VERSION"""
+    
+    def __init__(self, storage: IStoragePort, config: IConfigPort):
+        self.storage = storage
+        self.config = config
+
     def execute(self, content: str, output_path: str) -> str:
+        """Generate PDF from markdown content"""
         try:
+            from pathlib import Path
             import markdown
             from weasyprint import HTML, CSS
-            from pathlib import Path
-            import os
-            
-            # Expand ~ in path
-            output_path = os.path.expanduser(output_path)
             
             # Convert markdown to HTML
             html_content = markdown.markdown(content)
@@ -643,7 +440,6 @@ class GeneratePdfReportUseCase:
             
             # Generate PDF
             HTML(string=html_content).write_pdf(output_path, stylesheets=[css])
-            
             return f"✅ PDF generated: {output_path}"
             
         except ImportError as e:
@@ -659,70 +455,17 @@ macOS: brew install pango
 Ubuntu/Debian: sudo apt-get install libpango-1.0-0 libharfbuzz0b libpangoft2-1.0-0
 CentOS/RHEL: sudo yum install pango harfbuzz
 
-For detailed installation instructions, see:
-https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation
-
 Error: {error_msg}"""
-            else:
-                return f"❌ PDF generation failed: {error_msg}"
-
-
-class GetMessagesWithContentUseCase:
-    """Get messages with full content and response detection"""
-    
-    def __init__(self, storage: IStoragePort, config: IConfigPort):
-        self.storage = storage
-        self.config = config
-    
-    def execute(self, child_name: str) -> Dict:
-        child = self.config.get_child(child_name)
-        if not child:
-            return {"error": f"Child not found: {child_name}"}
-        
-        data = self.storage.get_recent_data(child.name, months=2)
-        if not data:
-            return {"error": f"No data found for {child.name}"}
-        
-        messages = []
-        for month_data in data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            month_messages = raw.get('messages', [])
-            messages.extend(month_messages)
-        
-        # Sort by date (newest first)
-        messages.sort(key=lambda x: x.get('date', ''), reverse=True)
-        
-        # Enhance with full content where available
-        enhanced_messages = []
-        for msg in messages:
-            enhanced_msg = msg.copy()
-            # If content is empty but we have title, use title as content
-            if not enhanced_msg.get('content') and enhanced_msg.get('title'):
-                enhanced_msg['content'] = enhanced_msg['title']
-            enhanced_messages.append(enhanced_msg)
-        
-        # Check for messages requiring response
-        requiring_response = []
-        for msg in enhanced_messages:
-            content = (msg.get('content', '') + ' ' + msg.get('title', '')).lower()
-            if any(keyword in content for keyword in ['proszę o odpowiedź', 'odpowiedz', 'potwierdź', 'zgoda', 'płatność']):
-                requiring_response.append(msg)
-        
-        return {
-            "total_messages": len(enhanced_messages),
-            "messages": enhanced_messages[:50],  # Last 50 messages
-            "requiring_response_count": len(requiring_response),
-            "requiring_response": requiring_response
-        }
+            return f"❌ PDF generation failed: {error_msg}"
 
 
 class GetDataSummaryUseCase:
-    """Get generic data summary"""
+    """Use case: Get data summary - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
         self.storage = storage
         self.config = config
-    
+
     def execute(self, child_name: str, data_type: str) -> Dict:
         child = self.config.get_child(child_name)
         if not child:
@@ -741,12 +484,12 @@ class GetDataSummaryUseCase:
 
 
 class ListChildrenUseCase:
-    """List all configured children with their status"""
+    """Use case: List children - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
         self.storage = storage
         self.config = config
-    
+
     def execute(self) -> str:
         children = self.config.get_children()
         lines = ["📚 Configured children:\n"]
