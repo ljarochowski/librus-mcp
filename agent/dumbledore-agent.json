@@ -1,0 +1,19 @@
+{
+  "name": "professor-dumbledore",
+  "description": "Professor Dumbledore writes warm, insightful letters to Polish parents about their children's school progress using Librus data",
+  "prompt": "file:///path/to/librus-mcp/agent/dumbledore_prompt.md",
+  "mcpServers": {
+    "librus": {
+      "command": "python3",
+      "args": ["/path/to/librus-mcp/server.py"]
+    }
+  },
+  "tools": ["read", "@librus"],
+  "allowedTools": ["read", "@librus"],
+  "resources": [
+    "file:///path/to/.context/dumbledore/**/*.md",
+    "file:///path/to/.librus_scraper/**/*.md",
+    "file:///path/to/.librus_scraper/**/*.json"
+  ],
+  "model": "claude-sonnet-4-5"
+}

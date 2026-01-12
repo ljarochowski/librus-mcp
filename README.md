@@ -2,284 +2,133 @@
 
 MCP (Model Context Protocol) server for scraping Polish school system data from Librus Synergia.
 
+## Architecture
+
+This project follows **Clean Architecture** (Ports & Adapters / DDD):
+
+```
+src/
+├── domain/           # Core business logic (no external dependencies)
+│   ├── models/       # Entities: Child, Grade, Homework, CalendarEvent, etc.
+│   └── services/     # GradeAnalyzer, HomeworkTracker, CalendarAnalyzer
+├── ports/            # Abstract interfaces
+│   └── __init__.py   # IBrowserPort, IStoragePort, IConfigPort
+├── adapters/         # Implementations
+│   ├── browser.py    # PlaywrightBrowserAdapter
+│   ├── storage.py    # FileStorageAdapter
+│   └── config.py     # YamlConfigAdapter
+├── application/      # Use cases
+│   └── __init__.py   # ScrapeChild, LoginChild, AnalyzeGrades, etc.
+└── infrastructure/   # MCP server wiring
+    └── mcp_server.py # LibrusMcpServer
+```
+
 ## Features
 
-- **Auto-login** - Saves browser session, no manual login after first setup
-- **Full data scraping** - Messages (with pagination), announcements, grades, calendar events
+- **Automated login** - Configurable credentials per child
+- **Full data scraping** - Grades, homework, calendar, messages, remarks
 - **Delta mode** - Only fetch new data since last scrape
 - **Multi-child support** - Manage multiple children with aliases
-- **Memory tracking** - Track grade history and trends
-- **Headless mode** - Runs in background after initial setup
-- **Colored console output** - Easy to read progress indicators
+- **Grade analysis** - Trends, averages, at-risk subjects
+- **Clean architecture** - Testable, maintainable, extensible
 
 ## Installation
 
 ```bash
-# Clone repository
 git clone https://github.com/yourusername/librus-mcp.git
 cd librus-mcp
 
-# Create virtual environment
 python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate
 
-# Install dependencies
 pip install -r requirements.txt
-
-# Install Playwright browsers
 playwright install webkit
 
-# Configure
 cp config.yaml.example config.yaml
-# Edit config.yaml with your settings and Librus credentials
+# Edit config.yaml with your children
 ```
 
 ## Configuration
 
-Create `config.yaml` based on the example:
-
-```bash
-cp config.yaml.example config.yaml
-# Edit config.yaml with your settings
-```
-
-Example configuration:
-
-```yaml
-# Browser settings
-browser:
-  login_timeout_ms: 120000
-  page_timeout_ms: 30000
-
-# Scraping limits
-scraping:
-  max_messages: 200
-  max_announcements: 150
-
-# Children configuration
-children:
-  - name: "John"
-    aliases: ["Johnny"]
-  
-  - name: "Jane"
-    aliases: []
-```
-
-### Automated Login (Optional)
-
-For fully automated login without manual intervention, add credentials to each child in `config.yaml`:
+Edit `config.yaml`:
 
 ```yaml
 children:
-  - name: "John"
-    aliases: ["Johnny"]
-    username: "your_librus_login"
-    password: "your_librus_password"
+  - name: "Child1"
+    aliases: ["Nickname"]
+    # Optional: for automated login
+    username: "librus_login"
+    password: "librus_password"
 ```
 
-When credentials are configured, `manual_login` will automatically:
-1. Navigate to Librus portal
-2. Accept cookie banner
-3. Open login form
-4. Fill in credentials and submit
-
-Without credentials, you'll need to manually log in when the browser opens.
-
-**Security:** `config.yaml` contains credentials and is excluded from git. Scraped data is stored in `~/.librus_scraper/` (outside the repository).
+`config.yaml` is gitignored - credentials stay local.
 
 ## Usage
 
-### Kiro CLI Agent
+### With Kiro CLI (Professor Dumbledore Agent)
 
-To use the school assistant agent with Kiro CLI:
+The repo includes a "Professor Dumbledore" agent that writes warm, insightful letters to parents about their children's school progress.
 
-1. **Copy the example agent configuration:**
-   ```bash
-   mkdir -p ~/.kiro/agents
-   cp kiro-agent-example.json ~/.kiro/agents/school-assistant.json
-   ```
+```bash
+# Copy agent config
+mkdir -p ~/.kiro/agents
+cp dumbledore-agent.json ~/.kiro/agents/
 
-2. **Edit the configuration with your paths:**
-   ```bash
-   # Update these paths in ~/.kiro/agents/school-assistant.json:
-   # - prompt: file:///your/path/to/librus-mcp/school_assistant_prompt.md
-   # - mcpServers.librus.args: ["/your/path/to/librus-mcp/server.py"]
-   # - resources: file:///your/path/to/.librus_scraper/**/*.md
-   ```
+# Edit paths in the config, then:
+kiro-cli --agent dumbledore
+```
 
-3. **Start Kiro with the agent:**
-   ```bash
-   kiro-cli --agent school-assistant
-   ```
-   
-   Or swap to it in an active session:
-   ```bash
-   /agent swap
-   # Select: school-assistant
-   ```
-
-4. **Ask about your children:**
-   ```
-   Jak moje dziecko radzi sobie w szkole?
-   ```
-
-### MCP Server Configuration
+See `agent/` folder for:
+- `dumbledore_prompt.md` - Agent system prompt
+- `character.md` - Dumbledore's character profile
+- `dumbledore-agent.json` - Kiro CLI agent config
 
 ### As MCP Server
 
-Add to your MCP client configuration (e.g., Claude Desktop `~/Library/Application Support/Claude/claude_desktop_config.json`):
+Add to your MCP client config:
 
 ```json
 {
   "mcpServers": {
     "librus": {
-      "command": "python",
-      "args": ["/absolute/path/to/librus-mcp/server.py"]
+      "command": "python3",
+      "args": ["/path/to/librus-mcp/server.py"]
     }
   }
 }
 ```
 
-### Direct Usage (Console)
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `scrape_librus` | Scrape data for a child |
+| `manual_login` | Trigger login (uses config credentials) |
+| `get_grades_summary` | Get grades with semester breakdown |
+| `get_calendar_events` | Get upcoming events and tests |
+| `get_homework_summary` | Get homework assignments |
+| `get_messages_summary` | Get messages from teachers |
+| `get_remarks_summary` | Get teacher remarks |
+| `analyze_grade_trends` | Analyze trends, averages, at-risk subjects |
+| `list_children` | List configured children |
+
+## Testing
 
 ```bash
-# Activate virtual environment
-source venv/bin/activate
-
-# Run scraper directly
-python3 -c "
-import asyncio
-from server import scrape_librus
-
-async def main():
-    result = await scrape_librus('John', force_full=True)
-    print(f'Scraped: {result[\"stats\"]}')
-
-asyncio.run(main())
-"
+pytest tests/ -v
+pytest tests/ --cov=src --cov-report=term-missing
 ```
 
-### Available MCP Tools
-
-1. **scrape_librus** - Scrape Librus data for a child
-   - `child_name` (required): Child name or alias
-   - `force_full` (optional): Force full scan instead of delta
-
-2. **get_memory** - Get stored memory and trends
-   - `child_name` (required): Child name or alias
-
-3. **save_analysis** - Save insight or note to memory
-   - `child_name` (required): Child name or alias
-   - `analysis_type` (required): "issue", "action_item", or "parent_note"
-   - `content` (required): Note content
-
-4. **list_children** - List all configured children with last scan dates
-
-## Project Structure
-
-```
-librus-mcp/
-├── server.py                  # Main MCP server
-├── src/
-│   ├── config.py              # Configuration and constants
-│   ├── credentials.py         # Credentials management
-│   ├── storage.py             # File storage operations
-│   ├── scraper.py             # Scraping orchestration
-│   ├── scraper_js.py          # JavaScript scraping code
-│   └── memory.py              # Memory and trends tracking
-├── tests/
-│   ├── test_credentials.py    # Credentials tests
-│   └── test_storage.py        # Storage tests
-├── credentials.json.example   # Example credentials file
-├── requirements.txt           # Python dependencies
-├── pyproject.toml            # Pytest configuration
-├── LICENSE                    # MIT License
-└── README.md                  # This file
-```
+Current: **81 tests, 71% coverage**
 
 ## Data Storage
 
-All data is stored in `~/.librus_scraper/<child-name>/`:
-
-- `browser_context/cookies.json` - Browser session (auto-login)
-- `state.json` - Scraping state (last scan date, etc.)
-- `memory.json` - Trends, notes, grade history
-- `latest.md` - Latest scraped data in Markdown format
-
-## Development
-
-```bash
-# Run tests
-pytest tests/ -v
-
-# Run specific test file
-pytest tests/test_credentials.py -v
-
-# Check code with type hints
-mypy src/ server.py
-```
-
-## Security Notes
-
-- **Never commit `credentials.json`** - It contains login credentials
-- **Never commit `~/.librus_scraper/`** - It contains personal data
-- All sensitive data is stored outside the repository
-- `.gitignore` is configured to prevent accidental commits
-- Browser sessions are encrypted by Playwright
-
-## How It Works
-
-1. **First Run**: Opens browser, you log in manually, session is saved
-2. **Subsequent Runs**: Uses saved session, runs headless (no GUI)
-3. **Scraping**: JavaScript code runs in browser context to extract data
-4. **Delta Mode**: Only fetches new data since last scrape (configurable)
-5. **Storage**: Saves data as Markdown and JSON for easy access
-
-## Troubleshooting
-
-### "No credentials found"
-- Make sure `credentials.json` exists and is properly formatted
-- Check that child name matches exactly (case-insensitive)
-
-### "Login failed"
-- Verify credentials are correct in `credentials.json`
-- Try deleting `~/.librus_scraper/<child-name>/browser_context/` and run again
-- Check if Librus website is accessible
-
-### "No data scraped"
-- Check if there's actually data in Librus (log in manually to verify)
-- Try with `force_full=True` to do a complete rescan
-- Check console output for specific errors
+All data stored in `~/.librus_scraper/<child>/`:
+- `browser_context/cookies.json` - Session
+- `state.json` - Last scrape timestamp
+- `memory.json` - Grade history, trends
+- `YYYY-MM.pkl` - Monthly data snapshots
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Make your changes
-4. Add tests for new functionality
-5. Ensure all tests pass (`pytest tests/ -v`)
-6. Commit your changes (`git commit -m 'Add amazing feature'`)
-7. Push to the branch (`git push origin feature/amazing-feature`)
-8. Open a Pull Request
-
-## Disclaimer
-
-This tool is for personal use only. Ensure you comply with Librus terms of service and applicable data protection laws (GDPR, etc.). The authors are not responsible for any misuse of this software.
-
-## Support
-
-For issues, questions, or contributions, please open an issue on GitHub.
-
-## Known Issues & TODOs
-
-### Upcoming Changes
-- **New Librus Messages Module**: Librus is transitioning to a new messages module. The scraper will need to be updated to support the new interface when it becomes mandatory.
-
-### Current Limitations
-- Messages scraping uses the current Librus interface (may change in future)
-- Calendar parsing assumes grid layout (may vary by school configuration)
-
+MIT
