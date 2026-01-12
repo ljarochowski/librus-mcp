@@ -107,10 +107,10 @@ class TestHomeworkTrackerEdgeCases:
         tracker = HomeworkTracker()
         
         malformed_homework = [
-            Homework(title="Valid", due_date=date(2026, 1, 1)),
-            Homework(title="None date", due_date=None),
-            Homework(title="Future", due_date=date(2099, 12, 31)),
-            Homework(title="Past", due_date=date(1900, 1, 1)),
+            Homework(subject="Math", title="Valid", date_added="2026-01-01", date_due="2026-01-01"),
+            Homework(subject="Math", title="None date", date_added="2026-01-01", date_due=""),
+            Homework(subject="Math", title="Future", date_added="2026-01-01", date_due="2099-12-31"),
+            Homework(subject="Math", title="Past", date_added="2026-01-01", date_due="1900-01-01"),
         ]
         
         # Should not crash with malformed dates
@@ -130,9 +130,9 @@ class TestHomeworkTrackerEdgeCases:
         today = date.today()
         
         homework = [
-            Homework(title="Today", due_date=today),
-            Homework(title="Tomorrow", due_date=date(today.year, today.month, today.day + 1) if today.day < 28 else date(today.year, today.month + 1, 1)),
-            Homework(title="Way future", due_date=date(2099, 1, 1)),
+            Homework(subject="Math", title="Today", date_added="2026-01-01", date_due=today.strftime("%Y-%m-%d")),
+            Homework(subject="Math", title="Tomorrow", date_added="2026-01-01", date_due=(today + timedelta(days=1)).strftime("%Y-%m-%d")),
+            Homework(subject="Math", title="Way future", date_added="2026-01-01", date_due="2099-01-01"),
         ]
         
         due_soon = tracker.get_due_soon(homework, days=7)
@@ -152,13 +152,12 @@ class TestCalendarAnalyzerEdgeCases:
         analyzer = CalendarAnalyzer()
         
         malformed_events = [
-            CalendarEvent(title="", date=date.today()),  # Empty title
-            CalendarEvent(title=None, date=date.today()),  # None title
-            CalendarEvent(title="Sprawdzian Math", date=None),  # None date
-            CalendarEvent(title="SPRAWDZIAN Physics", date=date.today()),  # Uppercase
-            CalendarEvent(title="sprawdzian chemistry", date=date.today()),  # Lowercase
-            CalendarEvent(title="Test with sprawdzian word", date=date.today()),  # Contains word
-            CalendarEvent(title="Regular lesson", date=date.today()),  # Not a test
+            CalendarEvent(title="", date="2026-01-13"),  # Empty title
+            CalendarEvent(title="Sprawdzian Math", date="2026-01-13"),  # Valid
+            CalendarEvent(title="SPRAWDZIAN Physics", date="2026-01-13"),  # Uppercase
+            CalendarEvent(title="sprawdzian chemistry", date="2026-01-13"),  # Lowercase
+            CalendarEvent(title="Test with sprawdzian word", date="2026-01-13"),  # Contains word
+            CalendarEvent(title="Regular lesson", date="2026-01-13"),  # Not a test
         ]
         
         tests = analyzer.get_upcoming_tests(malformed_events)
