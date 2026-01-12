@@ -45,7 +45,7 @@ class SubjectName:
     """Value object for subject name with normalization"""
     
     def __init__(self, name: str):
-        self._name = name.strip()
+        self._name = (name or "").strip()
     
     @property
     def raw(self) -> str:
@@ -53,7 +53,12 @@ class SubjectName:
     
     @property
     def normalized(self) -> str:
-        return self._name.lower().replace(" ", "_")
+        """Normalize subject name to title case with proper spacing"""
+        if not self._name:
+            return ""
+        # Clean up spacing and convert to title case
+        cleaned = " ".join(self._name.split())
+        return cleaned.title()
     
     def __str__(self) -> str:
         return self._name
