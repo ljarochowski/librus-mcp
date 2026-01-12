@@ -60,6 +60,334 @@ class ScrapeResultService:
         return f"delta since {last_scrape}"
 
 
+class GradeDataService:
+    """Handles grade data processing and analysis"""
+    
+    def __init__(self):
+        self.analyzer = GradeAnalyzer()
+    
+    def convert_raw_to_grades(self, raw_data: Dict) -> List[Grade]:
+        """Convert raw data to Grade domain objects"""
+        all_grades = []
+        for month_data in raw_data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            for g in raw.get('grades', []):
+                all_grades.append(Grade(
+                    subject=g.get('subject', ''),
+                    grade=g.get('grade', ''),
+                    date=g.get('date'),
+                    category=g.get('category', ''),
+                    weight=g.get('weight', ''),
+                    teacher=g.get('teacher', ''),
+                    comment=g.get('comment', '')
+                ))
+        return all_grades
+    
+    def analyze_grades_by_subject(self, grades: List[Grade]) -> Dict:
+        """Analyze grades grouped by subject"""
+        subjects = set(g.subject for g in grades if not g.is_semester_grade)
+        analysis = {}
+        
+        for subject in subjects:
+            avg = self.analyzer.calculate_average(grades, subject)
+            trend = self.analyzer.get_trend(grades, subject)
+            subject_grades = [g for g in grades if g.subject == subject and not g.is_semester_grade]
+            
+            analysis[subject] = {
+                "average": avg,
+                "trend": trend,
+                "count": len(subject_grades),
+                "recent": [g.grade for g in sorted(subject_grades, key=lambda x: x.date or '')[-5:]]
+            }
+        
+        return analysis
+    
+    def separate_current_and_semester_grades(self, raw_grades: List[Dict]) -> Dict:
+        """Separate current grades from semester grades"""
+        current = []
+        semester = {}
+        
+        for g in raw_grades:
+            cat = g.get('category', '').lower()
+            subj = g.get('subject', 'Unknown')
+            
+            if any(x in cat for x in ['śródroczn', 'roczn', 'końcow', 'przewidywan']):
+                if subj not in semester:
+                    semester[subj] = []
+                semester[subj].append(g)
+            else:
+                current.append(g)
+        
+        # Group current grades by subject
+        by_subject = {}
+        for g in current:
+            subj = g.get('subject', 'Unknown')
+            if subj not in by_subject:
+                by_subject[subj] = []
+            by_subject[subj].append(g)
+        
+        return {
+            "current": current,
+            "semester": semester,
+            "by_subject": by_subject
+        }
+    
+    def filter_grades_by_date(self, raw_grades: List[Dict], date_from: str, date_to: str, include_semester: bool) -> List[Dict]:
+        """Filter grades by date range"""
+        filtered = []
+        
+        for grade in raw_grades:
+            grade_date = grade.get('date', '')
+            if date_from <= grade_date <= date_to:
+                category = grade.get('category', '').lower()
+                is_semester = any(x in category for x in ['śródroczn', 'roczn', 'końcow', 'przewidywan'])
+                
+                if include_semester or not is_semester:
+                    filtered.append(grade)
+        
+        return sorted(filtered, key=lambda x: x.get('date', ''), reverse=True)
+
+
+class TeacherMappingService:
+    """Handles teacher to subject mapping"""
+    
+    def build_teacher_subject_mapping(self, raw_data: Dict) -> Dict:
+        """Build mapping of teachers to subjects"""
+        teacher_subject = {}
+        
+        for month_data in raw_data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            grades = raw.get('grades', [])
+            
+            for grade in grades:
+                teacher = grade.get('teacher', '').strip()
+                subject = grade.get('subject', '').strip()
+                if teacher and subject:
+                    teacher_subject[teacher] = subject
+        
+        return teacher_subject
+
+
+class UrgentMattersService:
+    """Analyzes urgent matters like payments and deadlines"""
+    
+    def analyze_urgent_matters(self, raw_data: Dict) -> Dict:
+        """Analyze urgent matters from raw data"""
+        from datetime import datetime, timedelta
+        import re
+        
+        today = datetime.now().date()
+        critical_0_2_days = []
+        important_3_7_days = []
+        upcoming_8_14_days = []
+        
+        for month_data in raw_data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            
+            # Process homework deadlines
+            self._process_homework_deadlines(raw.get('homework', []), today, critical_0_2_days, important_3_7_days, upcoming_8_14_days)
+            
+            # Process payment messages
+            self._process_payment_messages(raw.get('messages', []), today, critical_0_2_days, important_3_7_days, upcoming_8_14_days)
+            
+            # Process upcoming tests
+            self._process_upcoming_tests(raw.get('calendar', []), today, critical_0_2_days, important_3_7_days, upcoming_8_14_days)
+        
+        return {
+            "critical_0_2_days": critical_0_2_days,
+            "important_3_7_days": important_3_7_days,
+            "upcoming_8_14_days": upcoming_8_14_days,
+            "total_urgent": len(critical_0_2_days) + len(important_3_7_days) + len(upcoming_8_14_days)
+        }
+    
+    def _process_homework_deadlines(self, homework: List[Dict], today, critical, important, upcoming):
+        """Process homework deadlines"""
+        from datetime import datetime
+        
+        for hw in homework:
+            due_date_str = hw.get('due_date', '')
+            if due_date_str:
+                try:
+                    due_date = datetime.strptime(due_date_str, '%Y-%m-%d').date()
+                    days_until = (due_date - today).days
+                    
+                    item = {
+                        "type": "homework",
+                        "title": hw.get('title', 'Zadanie domowe'),
+                        "subject": hw.get('subject', ''),
+                        "due": due_date_str,
+                        "days_until": days_until
+                    }
+                    
+                    self._categorize_by_urgency(item, days_until, critical, important, upcoming)
+                except:
+                    pass
+    
+    def _process_payment_messages(self, messages: List[Dict], today, critical, important, upcoming):
+        """Process payment messages for deadlines"""
+        import re
+        from datetime import datetime
+        
+        for msg in messages:
+            content = (msg.get('content', '') + ' ' + msg.get('title', '')).lower()
+            
+            if any(keyword in content for keyword in ['płatność', 'wpłata', 'opłata', 'składka', 'payment']):
+                date_patterns = [
+                    r'(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})',
+                    r'(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})'
+                ]
+                amount_patterns = [
+                    r'(\d+)[,.](\d{2})\s*z[łl]',
+                    r'(\d+)\s*z[łl]'
+                ]
+                
+                found_date = None
+                found_amount = None
+                
+                for pattern in date_patterns:
+                    match = re.search(pattern, content)
+                    if match:
+                        try:
+                            if len(match.group(1)) == 4:
+                                found_date = f"{match.group(1)}-{match.group(2).zfill(2)}-{match.group(3).zfill(2)}"
+                            else:
+                                found_date = f"{match.group(3)}-{match.group(2).zfill(2)}-{match.group(1).zfill(2)}"
+                            break
+                        except:
+                            pass
+                
+                for pattern in amount_patterns:
+                    match = re.search(pattern, content)
+                    if match:
+                        if len(match.groups()) == 2:
+                            found_amount = f"{match.group(1)}.{match.group(2)} zł"
+                        else:
+                            found_amount = f"{match.group(1)} zł"
+                        break
+                
+                if found_date:
+                    try:
+                        due_date = datetime.strptime(found_date, '%Y-%m-%d').date()
+                        days_until = (due_date - today).days
+                        
+                        item = {
+                            "type": "payment",
+                            "amount": found_amount or "Nieznana kwota",
+                            "due": found_date,
+                            "title": msg.get('title', 'Płatność'),
+                            "sender": msg.get('sender', ''),
+                            "days_until": days_until
+                        }
+                        
+                        self._categorize_by_urgency(item, days_until, critical, important, upcoming)
+                    except:
+                        pass
+    
+    def _process_upcoming_tests(self, calendar: List[Dict], today, critical, important, upcoming):
+        """Process upcoming tests from calendar"""
+        from datetime import datetime
+        
+        for event in calendar:
+            event_date_str = event.get('date', '')
+            if event_date_str and 'sprawdzian' in event.get('title', '').lower():
+                try:
+                    event_date = datetime.strptime(event_date_str, '%Y-%m-%d').date()
+                    days_until = (event_date - today).days
+                    
+                    item = {
+                        "type": "test",
+                        "title": event.get('title', 'Sprawdzian'),
+                        "date": event_date_str,
+                        "days_until": days_until
+                    }
+                    
+                    self._categorize_by_urgency(item, days_until, critical, important, upcoming)
+                except:
+                    pass
+    
+    def _categorize_by_urgency(self, item: Dict, days_until: int, critical: List, important: List, upcoming: List):
+        """Categorize item by urgency"""
+        if 0 <= days_until <= 2:
+            critical.append(item)
+        elif 3 <= days_until <= 7:
+            important.append(item)
+        elif 8 <= days_until <= 14:
+            upcoming.append(item)
+
+
+class ActivityDeltaService:
+    """Handles activity delta analysis"""
+    
+    def get_activity_since_date(self, raw_data: Dict, since_date: str) -> Dict:
+        """Get activity since specific date"""
+        from datetime import datetime, timedelta
+        
+        new_grades = []
+        new_homework = []
+        new_messages = []
+        upcoming_tests = []
+        
+        today = datetime.now().date()
+        week_ahead = (today + timedelta(days=7)).strftime('%Y-%m-%d')
+        
+        for month_data in raw_data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            
+            # Filter by date
+            for grade in raw.get('grades', []):
+                if grade.get('date', '') >= since_date:
+                    new_grades.append(grade)
+            
+            for hw in raw.get('homework', []):
+                if hw.get('date', '') >= since_date:
+                    new_homework.append(hw)
+            
+            for msg in raw.get('messages', []):
+                if msg.get('date', '') >= since_date:
+                    new_messages.append(msg)
+            
+            for event in raw.get('calendar', []):
+                event_date = event.get('date', '')
+                if since_date <= event_date <= week_ahead and 'sprawdzian' in event.get('title', '').lower():
+                    upcoming_tests.append(event)
+        
+        return {
+            "new_grades": new_grades,
+            "new_homework": new_homework,
+            "new_messages": new_messages,
+            "upcoming_tests": upcoming_tests
+        }
+
+
+class MessageAnalysisService:
+    """Handles message content analysis"""
+    
+    def analyze_messages(self, raw_messages: List[Dict]) -> Dict:
+        """Analyze messages for content and response requirements"""
+        # Sort by date (newest first)
+        messages = sorted(raw_messages, key=lambda x: x.get('date', ''), reverse=True)
+        
+        # Enhance with full content
+        enhanced_messages = []
+        for msg in messages:
+            enhanced_msg = msg.copy()
+            if not enhanced_msg.get('content') and enhanced_msg.get('title'):
+                enhanced_msg['content'] = enhanced_msg['title']
+            enhanced_messages.append(enhanced_msg)
+        
+        # Find messages requiring response
+        requiring_response = []
+        for msg in enhanced_messages:
+            content = (msg.get('content', '') + ' ' + msg.get('title', '')).lower()
+            if any(keyword in content for keyword in ['proszę o odpowiedź', 'odpowiedz', 'potwierdź', 'zgoda', 'płatność']):
+                requiring_response.append(msg)
+        
+        return {
+            "enhanced_messages": enhanced_messages,
+            "requiring_response": requiring_response
+        }
+
+
 class GradeAnalyzer:
     """Analyzes grades and calculates trends"""
     

@@ -4,7 +4,11 @@ from typing import Dict, Optional
 
 from ..ports import IBrowserPort, IStoragePort, IConfigPort
 from ..domain.models import ScrapeResult, Grade
-from ..domain.services import GradeAnalyzer, HomeworkTracker, CalendarAnalyzer, ChildReportGenerator, GradeHistoryService, SessionService, ScrapeResultService
+from ..domain.services import (
+    GradeAnalyzer, HomeworkTracker, CalendarAnalyzer, ChildReportGenerator, 
+    GradeHistoryService, SessionService, ScrapeResultService, GradeDataService,
+    TeacherMappingService, UrgentMattersService, ActivityDeltaService, MessageAnalysisService
+)
 
 
 class ScrapeChildUseCase:
