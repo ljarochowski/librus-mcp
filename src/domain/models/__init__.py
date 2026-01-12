@@ -79,6 +79,11 @@ class Grade:
     teacher: str = ""
     comment: str = ""
     
+    def is_semester_grade(self) -> bool:
+        """Check if this grade is a semester/final grade"""
+        category = (self.category or '').lower()
+        return any(x in category for x in ['śródroczn', 'roczn', 'końcow', 'przewidywan'])
+    
     @property
     def is_semester_grade(self) -> bool:
         cat = self.category.lower()

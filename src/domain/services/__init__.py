@@ -48,16 +48,64 @@ class GradeAnalyzer:
         at_risk = []
         
         for subject in subjects:
-            avg = self.calculate_average(grades, subject)
+            subject_grades = [g for g in grades if g.subject == subject and not g.is_semester_grade]
+            avg = self.calculate_average(subject_grades)
             if avg and avg < threshold:
                 at_risk.append(subject)
         
         return at_risk
     
-    def _avg(self, values: List[float]) -> Optional[float]:
-        if not values:
-            return None
-        return sum(values) / len(values)
+    def filter_semester_grades(self, grades: List[Grade]) -> List[Grade]:
+        """Filter grades to only semester/final grades"""
+        return [g for g in grades if g.is_semester_grade()]
+    
+    def deduplicate_semester_grades(self, grades: List[Grade]) -> List[Grade]:
+        """Remove duplicate semester grades using business logic"""
+        seen_grades = set()  # Track duplicates: (subject, grade_value, category_type)
+        deduplicated = []
+        
+        # Build teacher-subject mapping for missing subjects
+        teacher_subject = {}
+        for grade in grades:
+            teacher = (grade.teacher or '').strip()
+            subject = (grade.subject or '').strip()
+            if teacher and subject:
+                teacher_subject[teacher] = subject
+        
+        for grade in grades:
+            # Get or map subject
+            subject = (grade.subject or '').strip()
+            teacher = (grade.teacher or '').strip()
+            
+            if not subject and teacher in teacher_subject:
+                subject = teacher_subject[teacher]
+            
+            if not subject:
+                subject = 'Unknown'
+            
+            # Normalize category for deduplication
+            category = (grade.category or '').lower()
+            category_type = 'predicted' if 'przewidywan' in category else 'final'
+            
+            # Create unique key
+            grade_value = (grade.grade or '').strip()
+            dedup_key = (subject, grade_value, category_type)
+            
+            if dedup_key not in seen_grades:
+                seen_grades.add(dedup_key)
+                # Create enriched grade with mapped subject
+                enriched_grade = Grade(
+                    subject=subject,
+                    grade=grade.grade,
+                    date=grade.date,
+                    category=grade.category,
+                    weight=grade.weight,
+                    teacher=grade.teacher,
+                    comment=grade.comment
+                )
+                deduplicated.append(enriched_grade)
+        
+        return deduplicated
 
 
 class HomeworkTracker:

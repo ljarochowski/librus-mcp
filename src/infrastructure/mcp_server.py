@@ -451,55 +451,56 @@ Error: {error_msg}"""
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        semester_grades = []
-        seen_grades = set()  # Track duplicates: (subject, grade_value, category_type)
-        
+        # Convert raw data to domain objects
+        all_grades = []
         for month_data in data.values():
             raw = month_data.get('data', {}).get('rawData', {})
-            grades = raw.get('grades', [])
+            grades_data = raw.get('grades', [])
             
-            for grade in grades:
-                category = grade.get('category', '').lower()
-                # Filter for semester/final grades
-                if any(x in category for x in ['śródroczn', 'roczn', 'końcow', 'przewidywan']):
-                    # Create deduplication key
-                    subject = grade.get('subject', '') or 'Unknown'
-                    teacher = grade.get('teacher', '')
-                    grade_value = grade.get('grade', '')
-                    
-                    # If no subject but has teacher, try to map it
-                    if not subject or subject == 'Unknown':
-                        # Try to find subject from teacher mapping in other grades
-                        for other_grade in grades:
-                            if (other_grade.get('teacher') == teacher and 
-                                other_grade.get('subject') and 
-                                other_grade.get('subject') != 'Unknown'):
-                                subject = other_grade.get('subject')
-                                break
-                    
-                    # Normalize category for deduplication
-                    category_type = 'predicted' if 'przewidywan' in category else 'final'
-                    
-                    # Create unique key for this grade
-                    dedup_key = (subject, grade_value, category_type)
-                    
-                    if dedup_key not in seen_grades:
-                        seen_grades.add(dedup_key)
-                        # Enrich grade with mapped subject
-                        enriched_grade = grade.copy()
-                        enriched_grade['subject'] = subject
-                        semester_grades.append(enriched_grade)
+            for grade_data in grades_data:
+                grade = Grade(
+                    subject=grade_data.get('subject', ''),
+                    grade=grade_data.get('grade', ''),
+                    date=grade_data.get('date'),
+                    category=grade_data.get('category', ''),
+                    weight=grade_data.get('weight', ''),
+                    teacher=grade_data.get('teacher', ''),
+                    comment=grade_data.get('comment', '')
+                )
+                all_grades.append(grade)
+        
+        # Use domain service for business logic
+        from ..domain.services import GradeAnalyzer
+        analyzer = GradeAnalyzer()
+        
+        semester_grades = analyzer.filter_semester_grades(all_grades)
+        deduplicated_grades = analyzer.deduplicate_semester_grades(semester_grades)
+        
+        # Convert back to dict format for response
+        grades_dict = []
+        for grade in deduplicated_grades:
+            grades_dict.append({
+                "subject": grade.subject,
+                "grade": grade.grade,
+                "date": grade.date,
+                "category": grade.category,
+                "weight": grade.weight,
+                "teacher": grade.teacher,
+                "comment": grade.comment
+            })
         
         # Sort by subject name
-        semester_grades.sort(key=lambda x: x.get('subject', ''))
+        grades_dict.sort(key=lambda x: x.get('subject', ''))
+        
+        unique_subjects = len(set(g.subject for g in deduplicated_grades))
         
         return {
             "child_name": child.name,
             "semester": semester,
             "year": year,
-            "total_semester_grades": len(semester_grades),
-            "unique_subjects": len(set(g.get('subject', '') for g in semester_grades)),
-            "grades": semester_grades
+            "total_semester_grades": len(grades_dict),
+            "unique_subjects": unique_subjects,
+            "grades": grades_dict
         }
     
     def _get_recent_activity_delta(self, child_name: str, since_date: str) -> dict:
