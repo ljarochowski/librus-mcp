@@ -12,7 +12,8 @@ from ..application import (
     ScrapeChildUseCase,
     LoginChildUseCase,
     GetGradesSummaryUseCase,
-    GetCalendarEventsUseCase
+    GetCalendarEventsUseCase,
+    AnalyzeGradesUseCase
 )
 
 
@@ -33,6 +34,7 @@ class LibrusMcpServer:
         self.login_child = LoginChildUseCase(self.browser, self.config)
         self.get_grades = GetGradesSummaryUseCase(self.storage, self.config)
         self.get_calendar = GetCalendarEventsUseCase(self.storage, self.config)
+        self.analyze_grades = AnalyzeGradesUseCase(self.storage, self.config)
         
         # MCP server
         self.server = Server("librus-mcp")
@@ -139,6 +141,17 @@ class LibrusMcpServer:
                 }
             ),
             Tool(
+                name="analyze_grade_trends",
+                description="Analyze grade trends, averages, and at-risk subjects",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "child_name": {"type": "string", "description": "Child name or alias"}
+                    },
+                    "required": ["child_name"]
+                }
+            ),
+            Tool(
                 name="list_children",
                 description="List all configured children",
                 inputSchema={"type": "object", "properties": {}}
@@ -187,6 +200,10 @@ class LibrusMcpServer:
                 return [TextContent(type="text", text=f"Child not found: {arguments['child_name']}")]
             memory = self.storage.load_memory(child.name)
             return [TextContent(type="text", text=json.dumps(memory, ensure_ascii=False, indent=2))]
+        
+        elif name == "analyze_grade_trends":
+            result = self.analyze_grades.execute(arguments["child_name"])
+            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
         
         elif name == "list_children":
             children = self.config.get_children()
