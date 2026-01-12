@@ -31,6 +31,13 @@ class TestGradeAnalyzer:
         ]
         assert self.analyzer.calculate_average(grades) == 5.0
     
+    def test_calculate_average_empty(self):
+        assert self.analyzer.calculate_average([]) is None
+    
+    def test_calculate_average_no_numeric(self):
+        grades = [Grade("Math", "nb", "2024-01-01", "test")]
+        assert self.analyzer.calculate_average(grades) is None
+    
     def test_get_trend_improving(self):
         grades = [
             Grade("Math", "2", "2024-01-01", "t"),
@@ -53,6 +60,21 @@ class TestGradeAnalyzer:
         ]
         assert self.analyzer.get_trend(grades, "Math") == "DECLINING"
     
+    def test_get_trend_stable(self):
+        grades = [
+            Grade("Math", "4", "2024-01-01", "t"),
+            Grade("Math", "4", "2024-01-02", "t"),
+            Grade("Math", "4", "2024-01-03", "t"),
+            Grade("Math", "4", "2024-01-04", "t"),
+            Grade("Math", "4", "2024-01-05", "t"),
+            Grade("Math", "4", "2024-01-06", "t"),
+        ]
+        assert self.analyzer.get_trend(grades, "Math") == "STABLE"
+    
+    def test_get_trend_insufficient_data(self):
+        grades = [Grade("Math", "5", "2024-01-01", "t")]
+        assert self.analyzer.get_trend(grades, "Math") == "INSUFFICIENT_DATA"
+    
     def test_get_subjects_at_risk(self):
         grades = [
             Grade("Math", "2", "2024-01-01", "t"),
@@ -62,6 +84,9 @@ class TestGradeAnalyzer:
         at_risk = self.analyzer.get_subjects_at_risk(grades, threshold=2.5)
         assert "Math" in at_risk
         assert "Physics" not in at_risk
+    
+    def test_get_subjects_at_risk_empty(self):
+        assert self.analyzer.get_subjects_at_risk([]) == []
 
 
 class TestHomeworkTracker:
