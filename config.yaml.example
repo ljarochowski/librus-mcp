@@ -25,4 +25,7 @@ console:
 children:
   - name: "Jakub"
     aliases: ["Kuba"]
+    # Optional: Add credentials for automated login
+    # username: "your_librus_login"
+    # password: "your_librus_password"
 

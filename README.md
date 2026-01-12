@@ -40,7 +40,7 @@ Create `config.yaml` based on the example:
 
 ```bash
 cp config.yaml.example config.yaml
-# Edit config.yaml with your settings and credentials
+# Edit config.yaml with your settings
 ```
 
 Example configuration:
@@ -56,13 +56,34 @@ scraping:
   max_messages: 200
   max_announcements: 150
 
-# Children credentials
+# Children configuration
 children:
   - name: "John"
     aliases: ["Johnny"]
-    login: "your_librus_login"
+  
+  - name: "Jane"
+    aliases: []
+```
+
+### Automated Login (Optional)
+
+For fully automated login without manual intervention, add credentials to each child in `config.yaml`:
+
+```yaml
+children:
+  - name: "John"
+    aliases: ["Johnny"]
+    username: "your_librus_login"
     password: "your_librus_password"
 ```
+
+When credentials are configured, `manual_login` will automatically:
+1. Navigate to Librus portal
+2. Accept cookie banner
+3. Open login form
+4. Fill in credentials and submit
+
+Without credentials, you'll need to manually log in when the browser opens.
 
 **Security:** `config.yaml` contains credentials and is excluded from git. Scraped data is stored in `~/.librus_scraper/` (outside the repository).
 

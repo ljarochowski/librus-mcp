@@ -1256,19 +1256,101 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
                 cookies_file.unlink()
             
             # Show clear message about which child is being logged in
-            print(f"\n{Colors.BOLD}{Colors.YELLOW}=== MANUAL LOGIN FOR {child_name.upper()} ==={Colors.ENDC}")
-            print(f"{Colors.YELLOW}Opening browser for {child_name} login only.{Colors.ENDC}")
-            print(f"{Colors.YELLOW}Please log in as parent for {child_name} and close browser when done.{Colors.ENDC}\n")
+            print(f"\n{Colors.BOLD}{Colors.YELLOW}=== AUTOMATED LOGIN FOR {child_name.upper()} ==={Colors.ENDC}")
+            print(f"{Colors.YELLOW}Attempting automated login for {child_name}...{Colors.ENDC}\n")
             
-            # Do a minimal login-only scrape
+            # Do automated login
             async with async_playwright() as p:
                 browser = await p.webkit.launch(headless=False)
                 
                 context = await browser.new_context()
                 page = await context.new_page()
                 
-                await page.goto('https://portal.librus.pl/rodzina/synergia/loguj')
-                print(f"{Colors.YELLOW}Waiting for login for {child_name}...{Colors.ENDC}")
+                # Step 1: Go to portal and accept cookies
+                print(f"{Colors.BLUE}Step 1: Navigating to portal...{Colors.ENDC}")
+                await page.goto('https://portal.librus.pl/rodzina', timeout=30000)
+                
+                try:
+                    cookie_button = await page.wait_for_selector(
+                        'button[data-modal-submit-all]',
+                        timeout=10000
+                    )
+                    if cookie_button:
+                        await cookie_button.click()
+                        await page.wait_for_timeout(1000)
+                        print(f"{Colors.GREEN}Cookies accepted{Colors.ENDC}")
+                except:
+                    print(f"{Colors.YELLOW}No cookie banner{Colors.ENDC}")
+                
+                # Step 2: Click LIBRUS Synergia menu
+                print(f"{Colors.BLUE}Step 2: Opening Synergia menu...{Colors.ENDC}")
+                try:
+                    synergia_menu = await page.wait_for_selector(
+                        'a.btn-synergia-top.dropdown-toggle',
+                        timeout=10000
+                    )
+                    await synergia_menu.click()
+                    await page.wait_for_timeout(500)
+                    print(f"{Colors.GREEN}Menu opened{Colors.ENDC}")
+                except Exception as e:
+                    print(f"{Colors.YELLOW}Menu click failed: {e}{Colors.ENDC}")
+                
+                # Step 3: Click Zaloguj
+                print(f"{Colors.BLUE}Step 3: Clicking Zaloguj...{Colors.ENDC}")
+                try:
+                    zaloguj = await page.wait_for_selector(
+                        'a[href="/rodzina/synergia/loguj"]',
+                        timeout=10000
+                    )
+                    await zaloguj.click()
+                    await page.wait_for_timeout(2000)
+                    print(f"{Colors.GREEN}Navigated to login{Colors.ENDC}")
+                except Exception as e:
+                    print(f"{Colors.YELLOW}Zaloguj click failed: {e}{Colors.ENDC}")
+                
+                # Step 4: Wait for iframe and switch to it
+                print(f"{Colors.BLUE}Step 4: Waiting for login iframe...{Colors.ENDC}")
+                try:
+                    iframe_element = await page.wait_for_selector('iframe#caLoginIframe', timeout=30000)
+                    iframe = await iframe_element.content_frame()
+                    print(f"{Colors.GREEN}Found iframe{Colors.ENDC}")
+                    
+                    # Step 5: Fill login form inside iframe
+                    print(f"{Colors.BLUE}Step 5: Filling login form...{Colors.ENDC}")
+                    login_input = await iframe.wait_for_selector('input#Login', state='visible', timeout=30000)
+                    password_input = await iframe.wait_for_selector('input#Pass', state='visible', timeout=30000)
+                    
+                    if login_input and password_input:
+                        print(f"{Colors.GREEN}Found login form, filling credentials...{Colors.ENDC}")
+                        
+                        # Load credentials from config
+                        from src.credentials import load_credentials
+                        creds = load_credentials()
+                        child_creds = None
+                        for child in creds.get("children", []):
+                            if child["name"].lower() == child_name.lower():
+                                child_creds = child
+                                break
+                        
+                        if child_creds and child_creds.get("username") and child_creds.get("password"):
+                            username = child_creds["username"]
+                            password = child_creds["password"]
+                            
+                            await login_input.fill(username)
+                            await password_input.fill(password)
+                            
+                            print(f"{Colors.GREEN}Credentials filled, submitting...{Colors.ENDC}")
+                            await password_input.press('Enter')
+                            await page.wait_for_timeout(3000)
+                        else:
+                            print(f"{Colors.RED}No credentials found for {child_name} in config.yaml{Colors.ENDC}")
+                    else:
+                        print(f"{Colors.YELLOW}Login form not found{Colors.ENDC}")
+                        
+                except Exception as e:
+                    print(f"{Colors.YELLOW}Login failed: {e}{Colors.ENDC}")
+                
+                print(f"{Colors.YELLOW}Waiting for successful login...{Colors.ENDC}")
                 
                 # Wait for successful login
                 await page.wait_for_url(lambda url: '/rodzic' in url, timeout=300000)  # 5 min timeout
