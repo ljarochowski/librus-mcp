@@ -89,6 +89,7 @@ class AnalyzeGradesUseCase:
         self.storage = storage
         self.config = config
         self.grade_data_service = GradeDataService()
+        self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str) -> Dict:
         child = self.config.get_child(child_name)
@@ -149,6 +150,7 @@ class GetSemesterGradesSummaryUseCase:
         self.config = config
         self.grade_data_service = GradeDataService()
         self.response_formatting_service = ResponseFormattingService()
+        self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str, semester: int = 1, year: str = None) -> Dict:
         child = self.config.get_child(child_name)
@@ -208,6 +210,7 @@ class GetTeacherSubjectMappingUseCase:
         self.storage = storage
         self.config = config
         self.teacher_mapping_service = TeacherMappingService()
+        self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str) -> Dict:
         child = self.config.get_child(child_name)
@@ -236,6 +239,7 @@ class AnalyzeUrgentMattersUseCase:
         self.storage = storage
         self.config = config
         self.urgent_matters_service = UrgentMattersService()
+        self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str) -> Dict:
         child = self.config.get_child(child_name)
@@ -267,6 +271,7 @@ class GetRecentActivityDeltaUseCase:
         self.storage = storage
         self.config = config
         self.activity_delta_service = ActivityDeltaService()
+        self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str, since_date: str) -> Dict:
         child = self.config.get_child(child_name)
@@ -305,6 +310,7 @@ class GetMessagesWithContentUseCase:
         self.storage = storage
         self.config = config
         self.message_analysis_service = MessageAnalysisService()
+        self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str) -> Dict:
         child = self.config.get_child(child_name)
@@ -360,6 +366,7 @@ class GetCalendarEventsUseCase:
         self.storage = storage
         self.config = config
         self.calendar_data_service = CalendarDataService()
+        self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str, days_ahead: int = 14) -> Dict:
         child = self.config.get_child(child_name)
