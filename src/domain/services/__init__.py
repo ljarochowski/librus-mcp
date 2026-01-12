@@ -386,6 +386,107 @@ class MessageAnalysisService:
             "enhanced_messages": enhanced_messages,
             "requiring_response": requiring_response
         }
+    
+    def extract_all_messages_from_data(self, raw_data: Dict) -> List[Dict]:
+        """Extract all messages from raw data"""
+        all_messages = []
+        for month_data in raw_data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            all_messages.extend(raw.get('messages', []))
+        return all_messages
+
+
+class CalendarDataService:
+    """Handles calendar data processing"""
+    
+    def __init__(self):
+        self.calendar_analyzer = CalendarAnalyzer()
+    
+    def extract_calendar_events_from_data(self, raw_data: Dict) -> List:
+        """Extract and convert calendar events from raw data"""
+        from ..models import CalendarEvent
+        
+        all_events = []
+        for month_data in raw_data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            for e in raw.get('calendar', []):
+                all_events.append(CalendarEvent(
+                    date=e.get('date', ''),
+                    title=e.get('title', ''),
+                    category=e.get('category', '')
+                ))
+        return all_events
+    
+    def analyze_calendar_events(self, events: List, days_ahead: int) -> Dict:
+        """Analyze calendar events for upcoming items"""
+        upcoming = self.calendar_analyzer.get_upcoming(events, days_ahead)
+        tests = self.calendar_analyzer.get_upcoming_tests(events, days_ahead)
+        
+        return {
+            "total_events": len(events),
+            "upcoming": [{"date": e.date, "title": e.title} for e in upcoming],
+            "upcoming_tests": [{"date": e.date, "title": e.title} for e in tests]
+        }
+
+
+class DataExtractionService:
+    """Handles raw data extraction and processing"""
+    
+    def extract_raw_grades_from_data(self, raw_data: Dict) -> List[Dict]:
+        """Extract raw grades from data"""
+        all_grades = []
+        for month_data in raw_data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            all_grades.extend(raw.get('grades', []))
+        return all_grades
+    
+    def extract_data_by_type(self, raw_data: Dict, data_type: str) -> List[Dict]:
+        """Extract specific data type from raw data"""
+        items = []
+        for month_data in raw_data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            items.extend(raw.get(data_type, []))
+        return items
+
+
+class ResponseFormattingService:
+    """Handles response formatting and data presentation"""
+    
+    def format_semester_grades_response(self, deduplicated_grades: List[Grade], child_name: str, semester: int, year: str) -> Dict:
+        """Format semester grades for response"""
+        grades_dict = []
+        for grade in deduplicated_grades:
+            grades_dict.append({
+                "subject": grade.subject,
+                "grade": grade.grade,
+                "date": grade.date,
+                "category": grade.category,
+                "weight": grade.weight,
+                "teacher": grade.teacher,
+                "comment": grade.comment
+            })
+        
+        grades_dict.sort(key=lambda x: x.get('subject', ''))
+        unique_subjects = len(set(g.subject for g in deduplicated_grades))
+        
+        return {
+            "child_name": child_name,
+            "semester": semester,
+            "year": year,
+            "total_semester_grades": len(grades_dict),
+            "unique_subjects": unique_subjects,
+            "grades": grades_dict
+        }
+    
+    def format_children_list(self, children: List, storage) -> str:
+        """Format children list for display"""
+        lines = ["📚 Configured children:\n"]
+        for child in children:
+            state = storage.load_state(child.name)
+            last_scan = state.get("last_scrape_iso", "Never")
+            aliases = f" (aliases: {', '.join(child.aliases)})" if child.aliases else ""
+            lines.append(f"- **{child.name}**{aliases}\n  Last scan: {last_scan}")
+        return "\n".join(lines)
 
 
 class GradeAnalyzer:

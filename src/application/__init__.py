@@ -7,7 +7,8 @@ from ..domain.models import ScrapeResult, Grade
 from ..domain.services import (
     GradeAnalyzer, HomeworkTracker, CalendarAnalyzer, ChildReportGenerator, 
     GradeHistoryService, SessionService, ScrapeResultService, GradeDataService,
-    TeacherMappingService, UrgentMattersService, ActivityDeltaService, MessageAnalysisService
+    TeacherMappingService, UrgentMattersService, ActivityDeltaService, MessageAnalysisService,
+    CalendarDataService, DataExtractionService, ResponseFormattingService
 )
 
 
@@ -117,6 +118,7 @@ class GetGradesSummaryUseCase:
         self.storage = storage
         self.config = config
         self.grade_data_service = GradeDataService()
+        self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str) -> Dict:
         child = self.config.get_child(child_name)
@@ -127,12 +129,8 @@ class GetGradesSummaryUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        # Use domain service for grade separation
-        all_grades = []
-        for month_data in data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            all_grades.extend(raw.get('grades', []))
-        
+        # Use domain services for all processing
+        all_grades = self.data_extraction_service.extract_raw_grades_from_data(data)
         separated = self.grade_data_service.separate_current_and_semester_grades(all_grades)
         
         return {
@@ -150,6 +148,7 @@ class GetSemesterGradesSummaryUseCase:
         self.storage = storage
         self.config = config
         self.grade_data_service = GradeDataService()
+        self.response_formatting_service = ResponseFormattingService()
 
     def execute(self, child_name: str, semester: int = 1, year: str = None) -> Dict:
         child = self.config.get_child(child_name)
@@ -160,34 +159,13 @@ class GetSemesterGradesSummaryUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        # Use domain service for grade processing
+        # Use domain services for all processing
         all_grades = self.grade_data_service.convert_raw_to_grades(data)
         deduplicated_grades = self.grade_data_service.analyzer.deduplicate_semester_grades(all_grades)
         
-        # Convert to response format
-        grades_dict = []
-        for grade in deduplicated_grades:
-            grades_dict.append({
-                "subject": grade.subject,
-                "grade": grade.grade,
-                "date": grade.date,
-                "category": grade.category,
-                "weight": grade.weight,
-                "teacher": grade.teacher,
-                "comment": grade.comment
-            })
-        
-        grades_dict.sort(key=lambda x: x.get('subject', ''))
-        unique_subjects = len(set(g.subject for g in deduplicated_grades))
-        
-        return {
-            "child_name": child.name,
-            "semester": semester,
-            "year": year,
-            "total_semester_grades": len(grades_dict),
-            "unique_subjects": unique_subjects,
-            "grades": grades_dict
-        }
+        return self.response_formatting_service.format_semester_grades_response(
+            deduplicated_grades, child.name, semester, year
+        )
 
 
 class GetGradeDetailsByDateUseCase:
@@ -197,6 +175,7 @@ class GetGradeDetailsByDateUseCase:
         self.storage = storage
         self.config = config
         self.grade_data_service = GradeDataService()
+        self.data_extraction_service = DataExtractionService()
     
     def execute(self, child_name: str, date_from: str, date_to: str, include_semester: bool) -> Dict:
         child = self.config.get_child(child_name)
@@ -207,12 +186,8 @@ class GetGradeDetailsByDateUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        # Use domain service for filtering
-        all_grades = []
-        for month_data in data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            all_grades.extend(raw.get('grades', []))
-        
+        # Use domain services for all processing
+        all_grades = self.data_extraction_service.extract_raw_grades_from_data(data)
         filtered_grades = self.grade_data_service.filter_grades_by_date(all_grades, date_from, date_to, include_semester)
         
         return {
@@ -326,13 +301,8 @@ class GetMessagesWithContentUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        # Collect all messages
-        all_messages = []
-        for month_data in data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            all_messages.extend(raw.get('messages', []))
-        
-        # Use domain service for analysis
+        # Use domain services for all processing
+        all_messages = self.message_analysis_service.extract_all_messages_from_data(data)
         analysis = self.message_analysis_service.analyze_messages(all_messages)
         
         return {
@@ -375,7 +345,7 @@ class GetCalendarEventsUseCase:
     def __init__(self, storage: IStoragePort, config: IConfigPort):
         self.storage = storage
         self.config = config
-        self.calendar_analyzer = CalendarAnalyzer()
+        self.calendar_data_service = CalendarDataService()
 
     def execute(self, child_name: str, days_ahead: int = 14) -> Dict:
         child = self.config.get_child(child_name)
@@ -386,25 +356,9 @@ class GetCalendarEventsUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        from ..domain.models import CalendarEvent
-        all_events = []
-        for month_data in data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            for e in raw.get('calendar', []):
-                all_events.append(CalendarEvent(
-                    date=e.get('date', ''),
-                    title=e.get('title', ''),
-                    category=e.get('category', '')
-                ))
-        
-        upcoming = self.calendar_analyzer.get_upcoming(all_events, days_ahead)
-        tests = self.calendar_analyzer.get_upcoming_tests(all_events, days_ahead)
-        
-        return {
-            "total_events": len(all_events),
-            "upcoming": [{"date": e.date, "title": e.title} for e in upcoming],
-            "upcoming_tests": [{"date": e.date, "title": e.title} for e in tests]
-        }
+        # Use domain services for all processing
+        all_events = self.calendar_data_service.extract_calendar_events_from_data(data)
+        return self.calendar_data_service.analyze_calendar_events(all_events, days_ahead)
 
 
 class GeneratePdfReportUseCase:
@@ -465,6 +419,7 @@ class GetDataSummaryUseCase:
     def __init__(self, storage: IStoragePort, config: IConfigPort):
         self.storage = storage
         self.config = config
+        self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str, data_type: str) -> Dict:
         child = self.config.get_child(child_name)
@@ -475,11 +430,8 @@ class GetDataSummaryUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        items = []
-        for month_data in data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            items.extend(raw.get(data_type, []))
-        
+        # Use domain service for data extraction
+        items = self.data_extraction_service.extract_data_by_type(data, data_type)
         return {"total": len(items), "items": items[-20:]}
 
 
@@ -489,13 +441,8 @@ class ListChildrenUseCase:
     def __init__(self, storage: IStoragePort, config: IConfigPort):
         self.storage = storage
         self.config = config
+        self.response_formatting_service = ResponseFormattingService()
 
     def execute(self) -> str:
         children = self.config.get_children()
-        lines = ["📚 Configured children:\n"]
-        for child in children:
-            state = self.storage.load_state(child.name)
-            last_scan = state.get("last_scrape_iso", "Never")
-            aliases = f" (aliases: {', '.join(child.aliases)})" if child.aliases else ""
-            lines.append(f"- **{child.name}**{aliases}\n  Last scan: {last_scan}")
-        return "\n".join(lines)
+        return self.response_formatting_service.format_children_list(children, self.storage)
