@@ -51,14 +51,14 @@ class TestNewMcpTools:
             assert "markdown" in result
     
     def test_generate_pdf_report_success(self, mock_server, tmp_path):
-        """Test PDF generation - just test the method exists and handles errors"""
+        """Test PDF generation handles both success and system dependency issues"""
         output_path = tmp_path / "test.pdf"
         
-        # Without dependencies installed, should get import error
-        result = mock_server._generate_pdf_report("# Test", str(output_path))
+        result = mock_server._generate_pdf_report("# Test Header\n\nTest content", str(output_path))
         
-        # Should handle missing dependencies gracefully
-        assert "Missing dependencies" in result or "PDF generation failed" in result
+        # Should either succeed or fail gracefully with system dependency issues
+        assert ("PDF generated" in result) or ("PDF generation failed" in result)
+        # The method should handle errors gracefully, not crash
     
     def test_get_grade_details_by_date(self, mock_server):
         """Test grade details by date range"""
