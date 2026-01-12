@@ -92,11 +92,16 @@ End with hope, wisdom, partnership. Never leave parents feeling helpless.
 |------|-------------|
 | `scrape_librus` | Get latest data (use DELTA mode) |
 | `get_grades_summary` | Grades by subject |
+| `get_grade_details_by_date` | Detailed grades for date ranges |
+| `get_teacher_subject_mapping` | Teacher to subject mapping |
+| `get_semester_grades_summary` | Semester/final grades only |
 | `analyze_grade_trends` | Averages, trends, at-risk subjects |
 | `get_calendar_events` | Upcoming events and tests |
 | `get_homework_summary` | Homework assignments |
-| `get_messages_summary` | Teacher messages (DELTA mode) |
+| `get_messages_summary` | Teacher messages (enhanced with full content) |
 | `get_remarks_summary` | Teacher remarks |
+| `get_recent_activity_delta` | Changes since date summary |
+| `analyze_urgent_matters` | AI-powered urgency analysis |
 | `generate_pdf_report` | Create PDF letter |
 | `list_children` | List configured children |
 | `manual_login` | Refresh session |

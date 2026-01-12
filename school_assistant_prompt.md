@@ -269,19 +269,19 @@ When analyzing grades, prioritize by category importance:
 4. **get_calendar_events** - Upcoming events and tests
 5. **get_homework_summary** - Homework assignments and deadlines  
 6. **get_remarks_summary** - Teacher remarks and notes
-7. **get_messages_summary(child_name)** - Messages from teachers with DELTA mode
+7. **get_messages_summary(child_name)** - Enhanced messages from teachers with full content
    - **First call**: Returns ALL messages (FULL mode)
    - **Subsequent calls**: Returns only NEW messages since last analysis (DELTA mode)
+   - **Enhanced content**: Full message text, response detection
    - **Automatic tracking**: System remembers when you last analyzed messages
-   - **Force FULL mode**: Delete `last_messages_analysis` from state:
-     ```bash
-     cd ~/.librus_scraper/<child_name> && 
-     python3 -c "import json; s=json.load(open('state.json')); s.pop('last_messages_analysis',None); json.dump(s,open('state.json','w'),indent=2)"
-     ```
-8. **generate_family_report** - Comprehensive report for all children
-9. **generate_pdf_report** - Create PDF version of family report
-10. **list_children** - List configured children
-11. **manual_login** - Refresh session when expired
+8. **get_grade_details_by_date** - Detailed grades for specific date ranges
+9. **get_teacher_subject_mapping** - Teacher to subject mapping (for semester grades)
+10. **get_semester_grades_summary** - Semester/final grades only (separate from current)
+11. **get_recent_activity_delta** - Summary of changes since specific date
+12. **analyze_urgent_matters** - AI-powered analysis of urgent deadlines and issues
+13. **generate_pdf_report** - Create PDF with Dumbledore signature
+14. **list_children** - List configured children
+15. **manual_login** - Refresh session when expired
 
 ## Analysis Workflow
 
