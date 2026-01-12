@@ -13,6 +13,39 @@ from ..domain.services import (
 from .data_extraction import DataExtractionService
 
 
+class BaseUseCase:
+    """Base class for use cases to eliminate duplication"""
+    
+    def __init__(self, storage: IStoragePort, config: IConfigPort):
+        self.storage = storage
+        self.config = config
+        self.data_extraction_service = DataExtractionService()
+    
+    def _get_child_and_data(self, child_name: str, months: int = 2) -> tuple:
+        """Common pattern: get child and data with error handling"""
+        child = self.config.get_child(child_name)
+        if not child:
+            return None, {"error": f"Child not found: {child_name}"}
+        
+        data = self.storage.get_recent_data(child.name, months=months)
+        if not data:
+            return None, {"error": f"No data found for {child.name}"}
+        
+        return child, data
+    
+    def _grade_to_dict(self, grade: Grade) -> Dict:
+        """Convert Grade object to dictionary"""
+        return {
+            "subject": grade.subject,
+            "grade": grade.grade,
+            "date": grade.date,
+            "category": grade.category,
+            "weight": grade.weight,
+            "teacher": grade.teacher,
+            "comment": grade.comment
+        }
+
+
 class ScrapeChildUseCase:
     """Use case: Scrape data for a child - CLEAN VERSION"""
     
@@ -83,23 +116,17 @@ class ScrapeChildUseCase:
         self.storage.save_memory(child_name, memory)
 
 
-class AnalyzeGradesUseCase:
+class AnalyzeGradesUseCase(BaseUseCase):
     """Use case: Analyze grades and trends - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
-        self.storage = storage
-        self.config = config
+        super().__init__(storage, config)
         self.grade_data_service = GradeDataService()
-        self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str) -> Dict:
-        child = self.config.get_child(child_name)
-        if not child:
-            return {"error": f"Child not found: {child_name}"}
-        
-        data = self.storage.get_recent_data(child.name, months=2)
-        if not data:
-            return {"error": f"No data found for {child.name}"}
+        child, data = self._get_child_and_data(child_name, months=2)
+        if child is None:
+            return data  # Error response
         
         # Application layer converts raw data to domain objects
         all_grades = self.data_extraction_service.convert_raw_to_grades(data)
@@ -113,23 +140,17 @@ class AnalyzeGradesUseCase:
         }
 
 
-class GetGradesSummaryUseCase:
+class GetGradesSummaryUseCase(BaseUseCase):
     """Use case: Get grades summary - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
-        self.storage = storage
-        self.config = config
+        super().__init__(storage, config)
         self.grade_data_service = GradeDataService()
-        self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str) -> Dict:
-        child = self.config.get_child(child_name)
-        if not child:
-            return {"error": f"Child not found: {child_name}"}
-        
-        data = self.storage.get_recent_data(child.name, months=2)
-        if not data:
-            return {"error": f"No data found for {child.name}"}
+        child, data = self._get_child_and_data(child_name, months=2)
+        if child is None:
+            return data  # Error response
         
         # Application layer converts raw data to domain objects
         all_grades = self.data_extraction_service.convert_raw_to_grades(data)
@@ -137,9 +158,9 @@ class GetGradesSummaryUseCase:
         
         return {
             "total_current_grades": len(separated["current"]),
-            "recent_grades": [{"subject": g.subject, "grade": g.grade, "date": g.date, "category": g.category, "weight": g.weight, "teacher": g.teacher, "comment": g.comment} for g in separated["current"][-10:]],
-            "semester_grades": {subj: [{"subject": g.subject, "grade": g.grade, "date": g.date, "category": g.category, "weight": g.weight, "teacher": g.teacher, "comment": g.comment} for g in grades] for subj, grades in separated["semester"].items()},
-            "by_subject": {subj: [{"subject": g.subject, "grade": g.grade, "date": g.date, "category": g.category, "weight": g.weight, "teacher": g.teacher, "comment": g.comment} for g in grades] for subj, grades in separated["by_subject"].items()}
+            "recent_grades": [self._grade_to_dict(g) for g in separated["current"][-10:]],
+            "semester_grades": {subj: [self._grade_to_dict(g) for g in grades] for subj, grades in separated["semester"].items()},
+            "by_subject": {subj: [self._grade_to_dict(g) for g in grades] for subj, grades in separated["by_subject"].items()}
         }
 
 
