@@ -24,6 +24,16 @@ class GradeAnalyzer:
             return None
         return round(sum(numeric) / len(numeric), 2)
     
+    def calculate_average_by_subject(self, grades: List[Grade]) -> Dict[str, float]:
+        """Calculate average for each subject"""
+        subjects = set(g.subject for g in grades if not g.is_semester_grade and g.subject and g.subject.strip())
+        result = {}
+        for subject in subjects:
+            avg = self.calculate_average(grades, subject)
+            if avg is not None:
+                result[subject] = avg
+        return result
+    
     def get_trend(self, grades: List[Grade], subject: str) -> str:
         """Calculate trend for a subject: IMPROVING, DECLINING, or STABLE"""
         subject_grades = [g for g in grades if g.subject == subject and not g.is_semester_grade]

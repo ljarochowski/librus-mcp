@@ -32,10 +32,10 @@ class TestGradeAnalyzerEdgeCases:
         analyzer = GradeAnalyzer()
         
         grades = [
-            Grade(subject=SubjectName(""), grade=GradeValue("5"), category="test"),
-            Grade(subject=SubjectName(None), grade=GradeValue("4"), category="test"),
-            Grade(subject=SubjectName("   "), grade=GradeValue("3"), category="test"),
-            Grade(subject=SubjectName("Math"), grade=GradeValue("6"), category="test"),
+            Grade(subject="", grade="5", category="test", date="2026-01-01"),
+            Grade(subject=None, grade="4", category="test", date="2026-01-01"),
+            Grade(subject="   ", grade="3", category="test", date="2026-01-01"),
+            Grade(subject="Math", grade="6", category="test", date="2026-01-01"),
         ]
         
         result = analyzer.calculate_average_by_subject(grades)
@@ -59,14 +59,14 @@ class TestGradeAnalyzerEdgeCases:
         assert analyzer.get_trend([]) == "insufficient_data"
         
         # Single grade
-        single_grade = [Grade(subject=SubjectName("Math"), grade=GradeValue("5"), category="test")]
+        single_grade = [Grade(subject="Math", grade="5", category="test", date="2026-01-01")]
         assert analyzer.get_trend(single_grade) == "insufficient_data"
         
         # All same grades
         same_grades = [
-            Grade(subject=SubjectName("Math"), grade=GradeValue("5"), category="test"),
-            Grade(subject=SubjectName("Math"), grade=GradeValue("5"), category="test"),
-            Grade(subject=SubjectName("Math"), grade=GradeValue("5"), category="test"),
+            Grade(subject="Math", grade="5", category="test", date="2026-01-01"),
+            Grade(subject="Math", grade="5", category="test", date="2026-01-01"),
+            Grade(subject="Math", grade="5", category="test", date="2026-01-01"),
         ]
         assert analyzer.get_trend(same_grades) == "stable"
     
@@ -76,15 +76,15 @@ class TestGradeAnalyzerEdgeCases:
         
         grades = [
             # Subject with mix of extreme values
-            Grade(subject=SubjectName("Chaos"), grade=GradeValue("1"), category="test"),
-            Grade(subject=SubjectName("Chaos"), grade=GradeValue("6"), category="test"),
-            Grade(subject=SubjectName("Chaos"), grade=GradeValue("1"), category="test"),
+            Grade(subject="Chaos", grade="1", category="test", date="2026-01-01"),
+            Grade(subject="Chaos", grade="6", category="test", date="2026-01-01"),
+            Grade(subject="Chaos", grade="1", category="test", date="2026-01-01"),
             # Subject with only failing grades
-            Grade(subject=SubjectName("Failing"), grade=GradeValue("1"), category="test"),
-            Grade(subject=SubjectName("Failing"), grade=GradeValue("2"), category="test"),
+            Grade(subject="Failing", grade="1", category="test", date="2026-01-01"),
+            Grade(subject="Failing", grade="2", category="test", date="2026-01-01"),
             # Subject with only perfect grades
-            Grade(subject=SubjectName("Perfect"), grade=GradeValue("6"), category="test"),
-            Grade(subject=SubjectName("Perfect"), grade=GradeValue("6"), category="test"),
+            Grade(subject="Perfect", grade="6", category="test", date="2026-01-01"),
+            Grade(subject="Perfect", grade="6", category="test", date="2026-01-01"),
         ]
         
         at_risk = analyzer.get_subjects_at_risk(grades)
@@ -227,7 +227,7 @@ class TestGradeValueEdgeCases:
         
         for input_val, expected in test_cases:
             grade = GradeValue(input_val)
-            result = grade.numeric()
+            result = grade.numeric
             assert result == expected, f"Input {input_val} should give {expected}, got {result}"
     
     def test_equality_with_different_types(self):
