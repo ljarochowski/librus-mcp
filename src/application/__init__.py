@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Dict, Optional
 
 from ..ports import IBrowserPort, IStoragePort, IConfigPort
-from ..domain.models import ScrapeResult
+from ..domain.models import ScrapeResult, Grade
 from ..domain.services import GradeAnalyzer, HomeworkTracker, CalendarAnalyzer, ChildReportGenerator
 
 
@@ -249,4 +249,69 @@ class GetCalendarEventsUseCase:
             "total_events": len(all_events),
             "upcoming": [{"date": e.date, "title": e.title} for e in upcoming],
             "upcoming_tests": [{"date": e.date, "title": e.title} for e in tests]
+        }
+
+
+class GetSemesterGradesSummaryUseCase:
+    """Get semester grades summary with deduplication"""
+    
+    def __init__(self, storage: IStoragePort, config: IConfigPort):
+        self.storage = storage
+        self.config = config
+    
+    def execute(self, child_name: str, semester: int = 1, year: str = None) -> Dict:
+        child = self.config.get_child(child_name)
+        if not child:
+            return {"error": f"Child not found: {child_name}"}
+        
+        data = self.storage.get_recent_data(child.name, months=12)
+        if not data:
+            return {"error": f"No data found for {child.name}"}
+        
+        # Convert raw data to domain objects
+        all_grades = []
+        for month_data in data.values():
+            raw = month_data.get('data', {}).get('rawData', {})
+            grades_data = raw.get('grades', [])
+            
+            for grade_data in grades_data:
+                grade = Grade(
+                    subject=grade_data.get('subject', ''),
+                    grade=grade_data.get('grade', ''),
+                    date=grade_data.get('date'),
+                    category=grade_data.get('category', ''),
+                    weight=grade_data.get('weight', ''),
+                    teacher=grade_data.get('teacher', ''),
+                    comment=grade_data.get('comment', '')
+                )
+                all_grades.append(grade)
+        
+        # Use domain services for business logic
+        analyzer = GradeAnalyzer()
+        semester_grades = analyzer.filter_semester_grades(all_grades)
+        deduplicated_grades = analyzer.deduplicate_semester_grades(semester_grades)
+        
+        # Convert back to response format
+        grades_dict = []
+        for grade in deduplicated_grades:
+            grades_dict.append({
+                "subject": grade.subject,
+                "grade": grade.grade,
+                "date": grade.date,
+                "category": grade.category,
+                "weight": grade.weight,
+                "teacher": grade.teacher,
+                "comment": grade.comment
+            })
+        
+        grades_dict.sort(key=lambda x: x.get('subject', ''))
+        unique_subjects = len(set(g.subject for g in deduplicated_grades))
+        
+        return {
+            "child_name": child.name,
+            "semester": semester,
+            "year": year,
+            "total_semester_grades": len(grades_dict),
+            "unique_subjects": unique_subjects,
+            "grades": grades_dict
         }

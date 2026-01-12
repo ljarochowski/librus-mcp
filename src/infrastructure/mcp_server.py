@@ -13,7 +13,8 @@ from ..application import (
     LoginChildUseCase,
     GetGradesSummaryUseCase,
     GetCalendarEventsUseCase,
-    AnalyzeGradesUseCase
+    AnalyzeGradesUseCase,
+    GetSemesterGradesSummaryUseCase
 )
 
 
@@ -35,6 +36,7 @@ class LibrusMcpServer:
         self.get_grades = GetGradesSummaryUseCase(self.storage, self.config)
         self.get_calendar = GetCalendarEventsUseCase(self.storage, self.config)
         self.analyze_grades = AnalyzeGradesUseCase(self.storage, self.config)
+        self.get_semester_grades = GetSemesterGradesSummaryUseCase(self.storage, self.config)
         
         # MCP server
         self.server = Server("librus-mcp")
@@ -443,65 +445,7 @@ Error: {error_msg}"""
     
     def _get_semester_grades_summary(self, child_name: str, semester: int, year: str = None) -> dict:
         """Get semester/final grades summary"""
-        child = self.config.get_child(child_name)
-        if not child:
-            return {"error": f"Child not found: {child_name}"}
-        
-        data = self.storage.get_recent_data(child.name, months=12)
-        if not data:
-            return {"error": f"No data found for {child.name}"}
-        
-        # Convert raw data to domain objects
-        all_grades = []
-        for month_data in data.values():
-            raw = month_data.get('data', {}).get('rawData', {})
-            grades_data = raw.get('grades', [])
-            
-            for grade_data in grades_data:
-                grade = Grade(
-                    subject=grade_data.get('subject', ''),
-                    grade=grade_data.get('grade', ''),
-                    date=grade_data.get('date'),
-                    category=grade_data.get('category', ''),
-                    weight=grade_data.get('weight', ''),
-                    teacher=grade_data.get('teacher', ''),
-                    comment=grade_data.get('comment', '')
-                )
-                all_grades.append(grade)
-        
-        # Use domain service for business logic
-        from ..domain.services import GradeAnalyzer
-        analyzer = GradeAnalyzer()
-        
-        semester_grades = analyzer.filter_semester_grades(all_grades)
-        deduplicated_grades = analyzer.deduplicate_semester_grades(semester_grades)
-        
-        # Convert back to dict format for response
-        grades_dict = []
-        for grade in deduplicated_grades:
-            grades_dict.append({
-                "subject": grade.subject,
-                "grade": grade.grade,
-                "date": grade.date,
-                "category": grade.category,
-                "weight": grade.weight,
-                "teacher": grade.teacher,
-                "comment": grade.comment
-            })
-        
-        # Sort by subject name
-        grades_dict.sort(key=lambda x: x.get('subject', ''))
-        
-        unique_subjects = len(set(g.subject for g in deduplicated_grades))
-        
-        return {
-            "child_name": child.name,
-            "semester": semester,
-            "year": year,
-            "total_semester_grades": len(grades_dict),
-            "unique_subjects": unique_subjects,
-            "grades": grades_dict
-        }
+        return self.get_semester_grades.execute(child_name, semester, year)
     
     def _get_recent_activity_delta(self, child_name: str, since_date: str) -> dict:
         """Get summary of recent changes since date"""
