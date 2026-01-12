@@ -3,7 +3,14 @@ import pytest
 import json
 from unittest.mock import Mock, patch
 from pathlib import Path
+from datetime import date, timedelta
 from src.infrastructure.mcp_server import LibrusMcpServer
+
+# Relative dates for non-flaky tests
+TODAY = date.today()
+CURRENT_MONTH = TODAY.strftime("%Y-%m")
+FUTURE_DATE = (TODAY + timedelta(days=5)).strftime("%Y-%m-%d")
+PAYMENT_DUE = (TODAY + timedelta(days=2)).strftime("%d.%m.%Y")
 
 
 class TestMcpServerInfrastructure:
@@ -46,7 +53,7 @@ class TestSemesterGradeDeduplication:
         
         # Mock data with duplicate semester grades
         server.storage.get_recent_data = Mock(return_value={
-            "2026-01": {
+            CURRENT_MONTH: {
                 "data": {
                     "rawData": {
                         "grades": [
@@ -121,11 +128,11 @@ class TestPaymentParsing:
         server = LibrusMcpServer(config_path)
         
         server.storage.get_recent_data = Mock(return_value={
-            "2026-01": {
+            CURRENT_MONTH: {
                 "data": {
                     "rawData": {
                         "messages": [
-                            {"content": "Wpłata 70 zł do 15.01.2026", "title": "Payment", "date": "2026-01-10"}
+                            {"content": f"Wpłata 70 zł do {PAYMENT_DUE}", "title": "Payment", "date": FUTURE_DATE}
                         ],
                         "grades": [], "homework": [], "calendar": []
                     }
@@ -152,7 +159,9 @@ class TestPaymentParsing:
             assert len(payment_items) >= 1, "Payment deadline not found"
             payment = payment_items[0]
             assert "70 zł" in payment.get("amount", "")
-            assert "2026-01-15" in payment.get("due", "")
+            # Should parse the date correctly (converts DD.MM.YYYY to YYYY-MM-DD)
+            expected_iso_date = f"{TODAY.year}-{(TODAY + timedelta(days=2)).strftime('%m-%d')}"
+            assert payment.get("due") == expected_iso_date
 
 
 class TestGradeDetailsByDate:
@@ -165,7 +174,7 @@ class TestGradeDetailsByDate:
         server = LibrusMcpServer(config_path)
         
         server.storage.get_recent_data = Mock(return_value={
-            "2026-01": {
+            CURRENT_MONTH: {
                 "data": {
                     "rawData": {
                         "grades": [
@@ -211,7 +220,7 @@ class TestTeacherSubjectMapping:
         server = LibrusMcpServer(config_path)
         
         server.storage.get_recent_data = Mock(return_value={
-            "2026-01": {
+            CURRENT_MONTH: {
                 "data": {
                     "rawData": {
                         "grades": [
@@ -245,7 +254,7 @@ class TestRecentActivityDelta:
         server = LibrusMcpServer(config_path)
         
         server.storage.get_recent_data = Mock(return_value={
-            "2026-01": {
+            CURRENT_MONTH: {
                 "data": {
                     "rawData": {
                         "grades": [
@@ -286,7 +295,7 @@ class TestEnhancedMessages:
         server = LibrusMcpServer(config_path)
         
         server.storage.get_recent_data = Mock(return_value={
-            "2026-01": {
+            CURRENT_MONTH: {
                 "data": {
                     "rawData": {
                         "messages": [

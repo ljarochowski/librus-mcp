@@ -4,6 +4,13 @@ from datetime import datetime, date, timedelta
 from src.domain.services import GradeAnalyzer, HomeworkTracker, CalendarAnalyzer
 from src.domain.models import Grade, Homework, CalendarEvent, GradeValue, SubjectName
 
+# Relative dates for non-flaky tests
+TODAY = date.today().strftime("%Y-%m-%d")
+YESTERDAY = (date.today() - timedelta(days=1)).strftime("%Y-%m-%d")
+TOMORROW = (date.today() + timedelta(days=1)).strftime("%Y-%m-%d")
+FUTURE = (date.today() + timedelta(days=30)).strftime("%Y-%m-%d")
+PAST = (date.today() - timedelta(days=30)).strftime("%Y-%m-%d")
+
 
 class TestGradeAnalyzerEdgeCases:
     """Unit tests for GradeAnalyzer with edge cases"""
@@ -14,11 +21,11 @@ class TestGradeAnalyzerEdgeCases:
         
         # Malformed grades that should be handled gracefully
         malformed_grades = [
-            Grade(subject="Math", grade=None, category="sprawdzian", date="2026-01-01"),  # None grade
-            Grade(subject="", grade="invalid", category="", date="2026-01-01"),  # Invalid grade
-            Grade(subject="Math", grade="", category="test", date="2026-01-01"),  # Empty grade
-            Grade(subject="Math", grade="∞", category="test", date="2026-01-01"),  # Unicode
-            Grade(subject="Math", grade="5+", category="test", date="2026-01-01"),  # Valid grade
+            Grade(subject="Math", grade=None, category="sprawdzian", date=TODAY),  # None grade
+            Grade(subject="", grade="invalid", category="", date=TODAY),  # Invalid grade
+            Grade(subject="Math", grade="", category="test", date=TODAY),  # Empty grade
+            Grade(subject="Math", grade="∞", category="test", date=TODAY),  # Unicode
+            Grade(subject="Math", grade="5+", category="test", date=TODAY),  # Valid grade
         ]
         
         # Should not crash, should handle invalid grades gracefully
@@ -32,10 +39,10 @@ class TestGradeAnalyzerEdgeCases:
         analyzer = GradeAnalyzer()
         
         grades = [
-            Grade(subject="", grade="5", category="test", date="2026-01-01"),
-            Grade(subject=None, grade="4", category="test", date="2026-01-01"),
-            Grade(subject="   ", grade="3", category="test", date="2026-01-01"),
-            Grade(subject="Math", grade="6", category="test", date="2026-01-01"),
+            Grade(subject="", grade="5", category="test", date=TODAY),
+            Grade(subject=None, grade="4", category="test", date=TODAY),
+            Grade(subject="   ", grade="3", category="test", date=TODAY),
+            Grade(subject="Math", grade="6", category="test", date=TODAY),
         ]
         
         result = analyzer.calculate_average_by_subject(grades)
@@ -59,14 +66,14 @@ class TestGradeAnalyzerEdgeCases:
         assert analyzer.get_trend([], "Math") == "INSUFFICIENT_DATA"
         
         # Single grade
-        single_grade = [Grade(subject="Math", grade="5", category="test", date="2026-01-01")]
+        single_grade = [Grade(subject="Math", grade="5", category="test", date=TODAY)]
         assert analyzer.get_trend(single_grade, "Math") == "INSUFFICIENT_DATA"
         
         # All same grades
         same_grades = [
-            Grade(subject="Math", grade="5", category="test", date="2026-01-01"),
-            Grade(subject="Math", grade="5", category="test", date="2026-01-01"),
-            Grade(subject="Math", grade="5", category="test", date="2026-01-01"),
+            Grade(subject="Math", grade="5", category="test", date=TODAY),
+            Grade(subject="Math", grade="5", category="test", date=TODAY),
+            Grade(subject="Math", grade="5", category="test", date=TODAY),
         ]
         assert analyzer.get_trend(same_grades, "Math") == "STABLE"
     
@@ -76,15 +83,15 @@ class TestGradeAnalyzerEdgeCases:
         
         grades = [
             # Subject with mix of extreme values
-            Grade(subject="Chaos", grade="1", category="test", date="2026-01-01"),
-            Grade(subject="Chaos", grade="6", category="test", date="2026-01-01"),
-            Grade(subject="Chaos", grade="1", category="test", date="2026-01-01"),
+            Grade(subject="Chaos", grade="1", category="test", date=TODAY),
+            Grade(subject="Chaos", grade="6", category="test", date=TODAY),
+            Grade(subject="Chaos", grade="1", category="test", date=TODAY),
             # Subject with only failing grades
-            Grade(subject="Failing", grade="1", category="test", date="2026-01-01"),
-            Grade(subject="Failing", grade="2", category="test", date="2026-01-01"),
+            Grade(subject="Failing", grade="1", category="test", date=TODAY),
+            Grade(subject="Failing", grade="2", category="test", date=TODAY),
             # Subject with only perfect grades
-            Grade(subject="Perfect", grade="6", category="test", date="2026-01-01"),
-            Grade(subject="Perfect", grade="6", category="test", date="2026-01-01"),
+            Grade(subject="Perfect", grade="6", category="test", date=TODAY),
+            Grade(subject="Perfect", grade="6", category="test", date=TODAY),
         ]
         
         at_risk = analyzer.get_subjects_at_risk(grades)
@@ -107,10 +114,10 @@ class TestHomeworkTrackerEdgeCases:
         tracker = HomeworkTracker()
         
         malformed_homework = [
-            Homework(subject="Math", title="Valid", date_added="2026-01-01", date_due="2026-01-01"),
-            Homework(subject="Math", title="None date", date_added="2026-01-01", date_due=""),
-            Homework(subject="Math", title="Future", date_added="2026-01-01", date_due="2099-12-31"),
-            Homework(subject="Math", title="Past", date_added="2026-01-01", date_due="1900-01-01"),
+            Homework(subject="Math", title="Valid", date_added=TODAY, date_due=TODAY),
+            Homework(subject="Math", title="None date", date_added=TODAY, date_due=""),
+            Homework(subject="Math", title="Future", date_added=TODAY, date_due=FUTURE),
+            Homework(subject="Math", title="Past", date_added=TODAY, date_due=PAST),
         ]
         
         # Should not crash with malformed dates
@@ -130,9 +137,9 @@ class TestHomeworkTrackerEdgeCases:
         today = date.today()
         
         homework = [
-            Homework(subject="Math", title="Today", date_added="2026-01-01", date_due=today.strftime("%Y-%m-%d")),
-            Homework(subject="Math", title="Tomorrow", date_added="2026-01-01", date_due=(today + timedelta(days=1)).strftime("%Y-%m-%d")),
-            Homework(subject="Math", title="Way future", date_added="2026-01-01", date_due="2099-01-01"),
+            Homework(subject="Math", title="Today", date_added=TODAY, date_due=TODAY),
+            Homework(subject="Math", title="Tomorrow", date_added=TODAY, date_due=TOMORROW),
+            Homework(subject="Math", title="Way future", date_added=TODAY, date_due=FUTURE),
         ]
         
         due_soon = tracker.get_due_soon(homework, days=7)
@@ -152,12 +159,12 @@ class TestCalendarAnalyzerEdgeCases:
         analyzer = CalendarAnalyzer()
         
         malformed_events = [
-            CalendarEvent(title="", date="2026-01-13"),  # Empty title
-            CalendarEvent(title="Sprawdzian Math", date="2026-01-13"),  # Valid
-            CalendarEvent(title="SPRAWDZIAN Physics", date="2026-01-13"),  # Uppercase
-            CalendarEvent(title="sprawdzian chemistry", date="2026-01-13"),  # Lowercase
-            CalendarEvent(title="Test with sprawdzian word", date="2026-01-13"),  # Contains word
-            CalendarEvent(title="Regular lesson", date="2026-01-13"),  # Not a test
+            CalendarEvent(title="", date=TODAY),  # Empty title
+            CalendarEvent(title="Sprawdzian Math", date=TODAY),  # Valid
+            CalendarEvent(title="SPRAWDZIAN Physics", date=TODAY),  # Uppercase
+            CalendarEvent(title="sprawdzian chemistry", date=TODAY),  # Lowercase
+            CalendarEvent(title="Test with sprawdzian word", date=TODAY),  # Contains word
+            CalendarEvent(title="Regular lesson", date=TODAY),  # Not a test
         ]
         
         tests = analyzer.get_upcoming_tests(malformed_events)
