@@ -288,8 +288,7 @@ class GetSemesterGradesSummaryUseCase:
         
         # Use domain services for business logic
         analyzer = GradeAnalyzer()
-        semester_grades = analyzer.filter_semester_grades(all_grades)
-        deduplicated_grades = analyzer.deduplicate_semester_grades(semester_grades)
+        deduplicated_grades = analyzer.deduplicate_semester_grades(all_grades)
         
         # Convert back to response format
         grades_dict = []

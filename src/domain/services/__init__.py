@@ -7,6 +7,12 @@ from ..models import Grade, Homework, CalendarEvent, ScrapeResult
 class GradeAnalyzer:
     """Analyzes grades and calculates trends"""
     
+    def _avg(self, values: List[float]) -> Optional[float]:
+        """Calculate average of numeric values"""
+        if not values:
+            return None
+        return sum(values) / len(values)
+    
     def calculate_average(self, grades: List[Grade], subject: Optional[str] = None) -> Optional[float]:
         """Calculate average for grades, optionally filtered by subject"""
         filtered = [g for g in grades if not g.is_semester_grade]
@@ -57,14 +63,11 @@ class GradeAnalyzer:
     
     def filter_semester_grades(self, grades: List[Grade]) -> List[Grade]:
         """Filter grades to only semester/final grades"""
-        return [g for g in grades if g.is_semester_grade()]
+        return [g for g in grades if g.is_semester_grade]
     
     def deduplicate_semester_grades(self, grades: List[Grade]) -> List[Grade]:
         """Remove duplicate semester grades using business logic"""
-        seen_grades = set()  # Track duplicates: (subject, grade_value, category_type)
-        deduplicated = []
-        
-        # Build teacher-subject mapping for missing subjects
+        # Build teacher-subject mapping from ALL grades (not just semester)
         teacher_subject = {}
         for grade in grades:
             teacher = (grade.teacher or '').strip()
@@ -72,38 +75,50 @@ class GradeAnalyzer:
             if teacher and subject:
                 teacher_subject[teacher] = subject
         
-        for grade in grades:
-            # Get or map subject
+        # Filter to only semester grades
+        semester_grades = self.filter_semester_grades(grades)
+        
+        # Enrich semester grades with mapped subjects
+        enriched_grades = []
+        for grade in semester_grades:
             subject = (grade.subject or '').strip()
             teacher = (grade.teacher or '').strip()
             
+            # Map subject if missing
             if not subject and teacher in teacher_subject:
                 subject = teacher_subject[teacher]
             
             if not subject:
                 subject = 'Unknown'
             
+            # Create enriched grade
+            enriched_grade = Grade(
+                subject=subject,
+                grade=grade.grade,
+                date=grade.date,
+                category=grade.category,
+                weight=grade.weight,
+                teacher=grade.teacher,
+                comment=grade.comment
+            )
+            enriched_grades.append(enriched_grade)
+        
+        # Now deduplicate using enriched subjects
+        seen_grades = set()
+        deduplicated = []
+        
+        for grade in enriched_grades:
             # Normalize category for deduplication
             category = (grade.category or '').lower()
             category_type = 'predicted' if 'przewidywan' in category else 'final'
             
-            # Create unique key
+            # Create unique key using enriched subject
             grade_value = (grade.grade or '').strip()
-            dedup_key = (subject, grade_value, category_type)
+            dedup_key = (grade.subject, grade_value, category_type)
             
             if dedup_key not in seen_grades:
                 seen_grades.add(dedup_key)
-                # Create enriched grade with mapped subject
-                enriched_grade = Grade(
-                    subject=subject,
-                    grade=grade.grade,
-                    date=grade.date,
-                    category=grade.category,
-                    weight=grade.weight,
-                    teacher=grade.teacher,
-                    comment=grade.comment
-                )
-                deduplicated.append(enriched_grade)
+                deduplicated.append(grade)
         
         return deduplicated
 

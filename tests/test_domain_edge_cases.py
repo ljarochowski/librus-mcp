@@ -14,11 +14,11 @@ class TestGradeAnalyzerEdgeCases:
         
         # Malformed grades that should be handled gracefully
         malformed_grades = [
-            Grade(subject=SubjectName("Math"), grade=GradeValue(None), category="sprawdzian"),  # None grade
-            Grade(subject=SubjectName(""), grade=GradeValue("invalid"), category=""),  # Invalid grade
-            Grade(subject=SubjectName("Math"), grade=GradeValue(""), category="test"),  # Empty grade
-            Grade(subject=SubjectName("Math"), grade=GradeValue("∞"), category="test"),  # Unicode
-            Grade(subject=SubjectName("Math"), grade=GradeValue("5+"), category="test"),  # Valid grade
+            Grade(subject="Math", grade=None, category="sprawdzian", date="2026-01-01"),  # None grade
+            Grade(subject="", grade="invalid", category="", date="2026-01-01"),  # Invalid grade
+            Grade(subject="Math", grade="", category="test", date="2026-01-01"),  # Empty grade
+            Grade(subject="Math", grade="∞", category="test", date="2026-01-01"),  # Unicode
+            Grade(subject="Math", grade="5+", category="test", date="2026-01-01"),  # Valid grade
         ]
         
         # Should not crash, should handle invalid grades gracefully

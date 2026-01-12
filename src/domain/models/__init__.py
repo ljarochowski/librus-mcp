@@ -11,7 +11,7 @@ class GradeValue:
     """Value object for grade with numeric conversion"""
     
     def __init__(self, value: str):
-        self._value = value.strip()
+        self._value = (value or "").strip()
     
     @property
     def raw(self) -> str:
@@ -79,15 +79,11 @@ class Grade:
     teacher: str = ""
     comment: str = ""
     
+    @property
     def is_semester_grade(self) -> bool:
         """Check if this grade is a semester/final grade"""
         category = (self.category or '').lower()
         return any(x in category for x in ['śródroczn', 'roczn', 'końcow', 'przewidywan'])
-    
-    @property
-    def is_semester_grade(self) -> bool:
-        cat = self.category.lower()
-        return any(x in cat for x in ['śródroczn', 'roczn', 'końcow', 'przewidywan'])
     
     @property
     def numeric_value(self) -> Optional[float]:
