@@ -8,8 +8,9 @@ from ..domain.services import (
     GradeAnalyzer, HomeworkTracker, CalendarAnalyzer, ChildReportGenerator, 
     GradeHistoryService, SessionService, ScrapeResultService, GradeDataService,
     TeacherMappingService, UrgentMattersService, ActivityDeltaService, MessageAnalysisService,
-    CalendarDataService, DataExtractionService, ResponseFormattingService
+    CalendarDataService, ResponseFormattingService
 )
+from .data_extraction import DataExtractionService
 
 
 class ScrapeChildUseCase:
@@ -130,15 +131,15 @@ class GetGradesSummaryUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        # Use domain services for all processing
-        all_grades = self.data_extraction_service.extract_raw_grades_from_data(data)
+        # Application layer converts raw data to domain objects
+        all_grades = self.data_extraction_service.convert_raw_to_grades(data)
         separated = self.grade_data_service.separate_current_and_semester_grades(all_grades)
         
         return {
             "total_current_grades": len(separated["current"]),
-            "recent_grades": separated["current"][-10:],
-            "semester_grades": separated["semester"],
-            "by_subject": separated["by_subject"]
+            "recent_grades": [{"subject": g.subject, "grade": g.grade, "date": g.date, "category": g.category, "weight": g.weight, "teacher": g.teacher, "comment": g.comment} for g in separated["current"][-10:]],
+            "semester_grades": {subj: [{"subject": g.subject, "grade": g.grade, "date": g.date, "category": g.category, "weight": g.weight, "teacher": g.teacher, "comment": g.comment} for g in grades] for subj, grades in separated["semester"].items()},
+            "by_subject": {subj: [{"subject": g.subject, "grade": g.grade, "date": g.date, "category": g.category, "weight": g.weight, "teacher": g.teacher, "comment": g.comment} for g in grades] for subj, grades in separated["by_subject"].items()}
         }
 
 
@@ -188,8 +189,8 @@ class GetGradeDetailsByDateUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        # Use domain services for all processing
-        all_grades = self.data_extraction_service.extract_raw_grades_from_data(data)
+        # Application layer converts raw data to domain objects
+        all_grades = self.data_extraction_service.convert_raw_to_grades(data)
         filtered_grades = self.grade_data_service.filter_grades_by_date(all_grades, date_from, date_to, include_semester)
         
         return {
@@ -199,7 +200,7 @@ class GetGradeDetailsByDateUseCase:
             "date_range": f"{date_from} to {date_to}",
             "include_semester": include_semester,
             "total_grades": len(filtered_grades),
-            "grades": filtered_grades
+            "grades": [{"subject": g.subject, "grade": g.grade, "date": g.date, "category": g.category, "weight": g.weight, "teacher": g.teacher, "comment": g.comment} for g in filtered_grades]
         }
 
 
@@ -221,9 +222,9 @@ class GetTeacherSubjectMappingUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        # Application layer extracts data and passes to domain service
-        grades = self.data_extraction_service.extract_grades_for_teacher_mapping(data)
-        teacher_subject = self.teacher_mapping_service.build_teacher_subject_mapping(grades)
+        # Application layer converts raw data to domain objects
+        all_grades = self.data_extraction_service.convert_raw_to_grades(data)
+        teacher_subject = self.teacher_mapping_service.build_teacher_subject_mapping(all_grades)
         
         return {
             "child_name": child.name,
@@ -250,13 +251,11 @@ class AnalyzeUrgentMattersUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        # Application layer extracts structured data and passes to domain service
-        structured_data = self.data_extraction_service.extract_structured_data_for_urgent_analysis(data)
-        analysis = self.urgent_matters_service.analyze_urgent_matters(
-            structured_data["homework"], 
-            structured_data["messages"], 
-            structured_data["calendar"]
-        )
+        # Application layer converts raw data to domain objects
+        homework = self.data_extraction_service.convert_raw_to_homework(data)
+        messages = self.data_extraction_service.convert_raw_to_messages(data)
+        calendar = self.data_extraction_service.convert_raw_to_calendar(data)
+        analysis = self.urgent_matters_service.analyze_urgent_matters(homework, messages, calendar)
         
         return {
             "child_name": child.name,
@@ -282,15 +281,12 @@ class GetRecentActivityDeltaUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        # Application layer extracts structured data and passes to domain service
-        structured_data = self.data_extraction_service.extract_structured_data_for_activity_delta(data)
-        activity = self.activity_delta_service.get_activity_since_date(
-            structured_data["grades"],
-            structured_data["homework"], 
-            structured_data["messages"],
-            structured_data["calendar"],
-            since_date
-        )
+        # Application layer converts raw data to domain objects
+        grades = self.data_extraction_service.convert_raw_to_grades(data)
+        homework = self.data_extraction_service.convert_raw_to_homework(data)
+        messages = self.data_extraction_service.convert_raw_to_messages(data)
+        calendar = self.data_extraction_service.convert_raw_to_calendar(data)
+        activity = self.activity_delta_service.get_activity_since_date(grades, homework, messages, calendar, since_date)
         
         return {
             "child_name": child.name,
@@ -321,8 +317,8 @@ class GetMessagesWithContentUseCase:
         if not data:
             return {"error": f"No data found for {child.name}"}
         
-        # Application layer extracts data and passes to domain service
-        all_messages = self.data_extraction_service.extract_all_messages_from_data(data)
+        # Application layer converts raw data to domain objects
+        all_messages = self.data_extraction_service.convert_raw_to_messages(data)
         analysis = self.message_analysis_service.analyze_messages(all_messages)
         
         return {
