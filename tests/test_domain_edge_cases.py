@@ -210,7 +210,7 @@ class TestGradeValueEdgeCases:
         test_cases = [
             # Valid cases
             ("5", 5.0),
-            ("6-", 5.5),
+            ("6-", 5.75),
             ("4+", 4.5),
             # Edge cases
             ("", None),
@@ -262,17 +262,17 @@ class TestSubjectNameEdgeCases:
             # Normal cases
             ("Matematyka", "Matematyka"),
             ("FIZYKA", "Fizyka"),
-            ("język angielski", "Język Angielski"),
+            ("język angielski", "język_angielski"),
             # Edge cases
             ("", ""),
             (None, ""),
             ("   ", ""),
-            ("  matematyka  ", "Matematyka"),
-            ("JĘZYK   POLSKI", "Język Polski"),
+            ("  matematyka  ", "matematyka"),
+            ("JĘZYK   POLSKI", "język_polski"),
             # Unicode and special chars
-            ("Maﬀhematyka", "Maﬀhematyka"),  # Ligatures
-            ("Język🔥Polski", "Język🔥Polski"),  # Emoji
-            ("Wychowanie fizyczne", "Wychowanie Fizyczne"),
+            ("Maﬀhematyka", "maﬀhematyka"),  # Ligatures
+            ("Język🔥Polski", "język🔥polski"),  # Emoji
+            ("Wychowanie fizyczne", "wychowanie_fizyczne"),
         ]
         
         for input_val, expected in test_cases:

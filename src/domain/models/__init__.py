@@ -21,19 +21,34 @@ class GradeValue:
     def numeric(self) -> Optional[float]:
         g = self._value
         if g.isdigit():
-            return float(g)
+            val = float(g)
+            # Polish grades are 1-6, 0 is invalid
+            if val < 1 or val > 6:
+                return None
+            return val
         if g.endswith('+'):
             base = g[:-1]
             if base.isdigit():
-                return float(base) + 0.5
+                val = float(base)
+                if val < 1 or val > 6:
+                    return None
+                return val + 0.5
         if g.endswith('-'):
             base = g[:-1]
             if base.isdigit():
-                return float(base) - 0.25
+                val = float(base)
+                if val < 1 or val > 6:
+                    return None
+                return val - 0.25
         return None
     
     def __str__(self) -> str:
         return self._value
+    
+    def __eq__(self, other) -> bool:
+        if isinstance(other, GradeValue):
+            return self._value == other._value
+        return False
     
     def __eq__(self, other) -> bool:
         if isinstance(other, GradeValue):
@@ -53,12 +68,7 @@ class SubjectName:
     
     @property
     def normalized(self) -> str:
-        """Normalize subject name to title case with proper spacing"""
-        if not self._name:
-            return ""
-        # Clean up spacing and convert to title case
-        cleaned = " ".join(self._name.split())
-        return cleaned.title()
+        return self._name.lower().replace(" ", "_")
     
     def __str__(self) -> str:
         return self._name
