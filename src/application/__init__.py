@@ -105,13 +105,23 @@ class ScrapeChildUseCase(BaseUseCase):
         self.storage.save_memory(child_name, memory)
 
 
-class GradeAnalysisUseCase(BaseUseCase):
+class ServiceUseCase(BaseUseCase):
+    """Base class for use cases that need common services"""
+    
+    def __init__(self, storage: IStoragePort, config: IConfigPort, **services):
+        super().__init__(storage, config)
+        # Initialize common services
+        for service_name, service_class in services.items():
+            setattr(self, service_name, service_class())
+
+
+class GradeAnalysisUseCase(ServiceUseCase):
     """Base class for grade-related use cases"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
-        super().__init__(storage, config)
-        self.grade_data_service = GradeDataService()
-        self.response_formatting_service = ResponseFormattingService()
+        super().__init__(storage, config, 
+                        grade_data_service=GradeDataService,
+                        response_formatting_service=ResponseFormattingService)
     
     def _get_grades_for_analysis(self, child_name: str, months: int = 2) -> Tuple[Optional[Child], List[Grade], Optional[Dict]]:
         """Get child and convert raw data to grades, return error if any"""
@@ -205,12 +215,12 @@ class GetGradeDetailsByDateUseCase(GradeAnalysisUseCase):
         }
 
 
-class DataAnalysisUseCase(BaseUseCase):
+class DataAnalysisUseCase(ServiceUseCase):
     """Base class for use cases that need data extraction and analysis"""
     
-    def __init__(self, storage: IStoragePort, config: IConfigPort):
-        super().__init__(storage, config)
-        self.data_extraction_service = DataExtractionService()
+    def __init__(self, storage: IStoragePort, config: IConfigPort, **extra_services):
+        services = {'data_extraction_service': DataExtractionService, **extra_services}
+        super().__init__(storage, config, **services)
     
     def _execute_with_data(self, child_name: str, months: int, analysis_func) -> Dict:
         """Common pattern: get data, handle errors, run analysis"""
@@ -224,8 +234,7 @@ class GetTeacherSubjectMappingUseCase(DataAnalysisUseCase):
     """Use case: Get teacher to subject mapping - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
-        super().__init__(storage, config)
-        self.teacher_mapping_service = TeacherMappingService()
+        super().__init__(storage, config, teacher_mapping_service=TeacherMappingService)
 
     def execute(self, child_name: str) -> Dict:
         def analyze(child, data):
@@ -243,8 +252,7 @@ class AnalyzeUrgentMattersUseCase(DataAnalysisUseCase):
     """Use case: Analyze urgent matters - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
-        super().__init__(storage, config)
-        self.urgent_matters_service = UrgentMattersService()
+        super().__init__(storage, config, urgent_matters_service=UrgentMattersService)
 
     def execute(self, child_name: str) -> Dict:
         def analyze(child, data):
@@ -263,8 +271,7 @@ class GetRecentActivityDeltaUseCase(DataAnalysisUseCase):
     """Use case: Get recent activity delta - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
-        super().__init__(storage, config)
-        self.activity_delta_service = ActivityDeltaService()
+        super().__init__(storage, config, activity_delta_service=ActivityDeltaService)
 
     def execute(self, child_name: str, since_date: str) -> Dict:
         def analyze(child, data):
