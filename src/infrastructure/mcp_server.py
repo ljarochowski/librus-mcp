@@ -262,7 +262,6 @@ class LibrusMcpServer:
             "get_calendar_events": self.get_calendar,
             "analyze_grade_trends": self.analyze_grades,
             "get_semester_grades_summary": self.get_semester_grades,
-            "get_grade_details_by_date": self.get_grade_details,
             "get_teacher_subject_mapping": self.get_teacher_mapping,
             "analyze_urgent_matters": self.analyze_urgent,
             "get_recent_activity_delta": self.get_activity_delta,
@@ -272,6 +271,28 @@ class LibrusMcpServer:
         
         if name in simple_tools:
             return self._handle_simple_tool(simple_tools[name], arguments)
+        
+        # Tools with custom argument mapping
+        elif name == "get_grade_details_by_date":
+            result = self.get_grade_details.execute(
+                arguments["child_name"],
+                arguments["date_from"],
+                arguments["date_to"],
+                arguments.get("include_semester_grades", True)
+            )
+            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
+        
+        elif name == "get_homework_summary":
+            result = self._get_data_summary(arguments["child_name"], "homework")
+            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
+        
+        elif name == "get_remarks_summary":
+            result = self._get_data_summary(arguments["child_name"], "remarks")
+            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
+        
+        elif name == "generate_pdf_report":
+            result = self._generate_pdf_report(arguments["content"], arguments["output_path"])
+            return [TextContent(type="text", text=result)]
         
         # Special cases that need custom handling
         elif name == "scrape_librus":
