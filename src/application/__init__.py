@@ -20,6 +20,7 @@ class BaseUseCase:
         self.storage = storage
         self.config = config
         self.data_extraction_service = DataExtractionService()
+        self.data_extraction_service = DataExtractionService()
     
     def _get_child_and_data(self, child_name: str, months: int = 2) -> tuple:
         """Common pattern: get child and data with error handling"""
@@ -46,7 +47,7 @@ class BaseUseCase:
         }
 
 
-class ScrapeChildUseCase:
+class ScrapeChildUseCase(BaseUseCase):
     """Use case: Scrape data for a child - CLEAN VERSION"""
     
     def __init__(self, browser: IBrowserPort, storage: IStoragePort, config: IConfigPort):
@@ -164,24 +165,18 @@ class GetGradesSummaryUseCase(BaseUseCase):
         }
 
 
-class GetSemesterGradesSummaryUseCase:
+class GetSemesterGradesSummaryUseCase(BaseUseCase):
     """Use case: Get semester grades with deduplication - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
-        self.storage = storage
-        self.config = config
+        super().__init__(storage, config)
         self.grade_data_service = GradeDataService()
         self.response_formatting_service = ResponseFormattingService()
-        self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str, semester: int = 1, year: str = None) -> Dict:
-        child = self.config.get_child(child_name)
-        if not child:
-            return {"error": f"Child not found: {child_name}"}
-        
-        data = self.storage.get_recent_data(child.name, months=12)
-        if not data:
-            return {"error": f"No data found for {child.name}"}
+        child, data = self._get_child_and_data(child_name, months=12)
+        if child is None:
+            return data  # Error response
         
         # Application layer converts raw data to domain objects
         all_grades = self.data_extraction_service.convert_raw_to_grades(data)
@@ -192,24 +187,18 @@ class GetSemesterGradesSummaryUseCase:
         )
 
 
-class GetGradeDetailsByDateUseCase:
+class GetGradeDetailsByDateUseCase(BaseUseCase):
     """Use case: Get grades by date range - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
-        self.storage = storage
-        self.config = config
+        super().__init__(storage, config)
         self.grade_data_service = GradeDataService()
         self.data_extraction_service = DataExtractionService()
     
     def execute(self, child_name: str, date_from: str, date_to: str, include_semester: bool) -> Dict:
-        child = self.config.get_child(child_name)
-        if not child:
-            return {"error": f"Child not found: {child_name}"}
-        
-        data = self.storage.get_recent_data(child.name, months=6)
-        if not data:
-            return {"error": f"No data found for {child.name}"}
-        
+        child, data = self._get_child_and_data(child_name, months=6)
+        if child is None:
+            return data  # Error response
         # Application layer converts raw data to domain objects
         all_grades = self.data_extraction_service.convert_raw_to_grades(data)
         filtered_grades = self.grade_data_service.filter_grades_by_date(all_grades, date_from, date_to, include_semester)
@@ -225,24 +214,18 @@ class GetGradeDetailsByDateUseCase:
         }
 
 
-class GetTeacherSubjectMappingUseCase:
+class GetTeacherSubjectMappingUseCase(BaseUseCase):
     """Use case: Get teacher to subject mapping - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
-        self.storage = storage
-        self.config = config
+        super().__init__(storage, config)
         self.teacher_mapping_service = TeacherMappingService()
         self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str) -> Dict:
-        child = self.config.get_child(child_name)
-        if not child:
-            return {"error": f"Child not found: {child_name}"}
-        
-        data = self.storage.get_recent_data(child.name, months=6)
-        if not data:
-            return {"error": f"No data found for {child.name}"}
-        
+        child, data = self._get_child_and_data(child_name, months=6)
+        if child is None:
+            return data  # Error response
         # Application layer converts raw data to domain objects
         all_grades = self.data_extraction_service.convert_raw_to_grades(data)
         teacher_subject = self.teacher_mapping_service.build_teacher_subject_mapping(all_grades)
@@ -254,24 +237,18 @@ class GetTeacherSubjectMappingUseCase:
         }
 
 
-class AnalyzeUrgentMattersUseCase:
+class AnalyzeUrgentMattersUseCase(BaseUseCase):
     """Use case: Analyze urgent matters - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
-        self.storage = storage
-        self.config = config
+        super().__init__(storage, config)
         self.urgent_matters_service = UrgentMattersService()
         self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str) -> Dict:
-        child = self.config.get_child(child_name)
-        if not child:
-            return {"error": f"Child not found: {child_name}"}
-        
-        data = self.storage.get_recent_data(child.name, months=1)
-        if not data:
-            return {"error": f"No data found for {child.name}"}
-        
+        child, data = self._get_child_and_data(child_name, months=1)
+        if child is None:
+            return data  # Error response
         # Application layer converts raw data to domain objects
         homework = self.data_extraction_service.convert_raw_to_homework(data)
         messages = self.data_extraction_service.convert_raw_to_messages(data)
@@ -284,24 +261,18 @@ class AnalyzeUrgentMattersUseCase:
         }
 
 
-class GetRecentActivityDeltaUseCase:
+class GetRecentActivityDeltaUseCase(BaseUseCase):
     """Use case: Get recent activity delta - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
-        self.storage = storage
-        self.config = config
+        super().__init__(storage, config)
         self.activity_delta_service = ActivityDeltaService()
         self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str, since_date: str) -> Dict:
-        child = self.config.get_child(child_name)
-        if not child:
-            return {"error": f"Child not found: {child_name}"}
-        
-        data = self.storage.get_recent_data(child.name, months=2)
-        if not data:
-            return {"error": f"No data found for {child.name}"}
-        
+        child, data = self._get_child_and_data(child_name, months=2)
+        if child is None:
+            return data  # Error response
         # Application layer converts raw data to domain objects
         grades = self.data_extraction_service.convert_raw_to_grades(data)
         homework = self.data_extraction_service.convert_raw_to_homework(data)
@@ -320,24 +291,18 @@ class GetRecentActivityDeltaUseCase:
         }
 
 
-class GetMessagesWithContentUseCase:
+class GetMessagesWithContentUseCase(BaseUseCase):
     """Use case: Get messages with content analysis - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
-        self.storage = storage
-        self.config = config
+        super().__init__(storage, config)
         self.message_analysis_service = MessageAnalysisService()
         self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str) -> Dict:
-        child = self.config.get_child(child_name)
-        if not child:
-            return {"error": f"Child not found: {child_name}"}
-        
-        data = self.storage.get_recent_data(child.name, months=2)
-        if not data:
-            return {"error": f"No data found for {child.name}"}
-        
+        child, data = self._get_child_and_data(child_name, months=2)
+        if child is None:
+            return data  # Error response
         # Application layer converts raw data to domain objects
         all_messages = self.data_extraction_service.convert_raw_to_messages(data)
         analysis = self.message_analysis_service.analyze_messages(all_messages)
@@ -350,7 +315,7 @@ class GetMessagesWithContentUseCase:
         }
 
 
-class LoginChildUseCase:
+class LoginChildUseCase(BaseUseCase):
     """Use case: Login child - CLEAN VERSION"""
     
     def __init__(self, browser: IBrowserPort, config: IConfigPort):
@@ -376,36 +341,28 @@ class LoginChildUseCase:
             return {"status": "error", "message": f"Login failed for {child.name}"}
 
 
-class GetCalendarEventsUseCase:
+class GetCalendarEventsUseCase(BaseUseCase):
     """Use case: Get calendar events - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
-        self.storage = storage
-        self.config = config
+        super().__init__(storage, config)
         self.calendar_data_service = CalendarDataService()
         self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str, days_ahead: int = 14) -> Dict:
-        child = self.config.get_child(child_name)
-        if not child:
-            return {"error": f"Child not found: {child_name}"}
-        
-        data = self.storage.get_recent_data(child.name, months=2)
-        if not data:
-            return {"error": f"No data found for {child.name}"}
-        
+        child, data = self._get_child_and_data(child_name, months=2)
+        if child is None:
+            return data  # Error response
         # Application layer extracts and converts data, then passes to domain service
         all_events = self.data_extraction_service.extract_calendar_events_from_data(data)
         return self.calendar_data_service.analyze_calendar_events(all_events, days_ahead)
 
 
-class GeneratePdfReportUseCase:
+class GeneratePdfReportUseCase(BaseUseCase):
     """Use case: Generate PDF report - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
-        self.storage = storage
-        self.config = config
-
+        super().__init__(storage, config)
     def execute(self, content: str, output_path: str) -> str:
         """Generate PDF from markdown content"""
         try:
@@ -451,34 +408,27 @@ Error: {error_msg}"""
             return f"❌ PDF generation failed: {error_msg}"
 
 
-class GetDataSummaryUseCase:
+class GetDataSummaryUseCase(BaseUseCase):
     """Use case: Get data summary - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
-        self.storage = storage
-        self.config = config
+        super().__init__(storage, config)
         self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str, data_type: str) -> Dict:
-        child = self.config.get_child(child_name)
-        if not child:
-            return {"error": f"Child not found: {child_name}"}
-        
-        data = self.storage.get_recent_data(child.name, months=2)
-        if not data:
-            return {"error": f"No data found for {child.name}"}
-        
+        child, data = self._get_child_and_data(child_name, months=2)
+        if child is None:
+            return data  # Error response
         # Use domain service for data extraction
         items = self.data_extraction_service.extract_data_by_type(data, data_type)
         return {"total": len(items), "items": items[-20:]}
 
 
-class ListChildrenUseCase:
+class ListChildrenUseCase(BaseUseCase):
     """Use case: List children - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
-        self.storage = storage
-        self.config = config
+        super().__init__(storage, config)
         self.response_formatting_service = ResponseFormattingService()
 
     def execute(self) -> str:
