@@ -67,7 +67,77 @@ class LibrusMcpServer:
         async def call_tool(name: str, arguments: dict) -> List[TextContent]:
             return await self._handle_tool(name, arguments)
     
+    def _create_child_tool(self, name: str, description: str, extra_props=None):
+        """Create tool with child_name parameter - eliminates duplication"""
+        props = {"child_name": {"type": "string", "description": "Child name or alias"}}
+        required = ["child_name"]
+        if extra_props:
+            props.update(extra_props)
+            required.extend(k for k, v in extra_props.items() if not v.get("default"))
+        return Tool(
+            name=name,
+            description=description,
+            inputSchema={
+                "type": "object",
+                "properties": props,
+                "required": required
+            }
+        )
+
     def _get_tools(self) -> List[Tool]:
+        return [
+            Tool(
+                name="scrape_librus",
+                description="Scrape Librus data for a child",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "child_name": {"type": "string", "description": "Child name or alias"},
+                        "force_full": {"type": "boolean", "default": False}
+                    },
+                    "required": ["child_name"]
+                }
+            ),
+            self._create_child_tool("manual_login", "Trigger login for a child"),
+            self._create_child_tool("get_grades_summary", "Get grades summary for a child"),
+            self._create_child_tool("get_calendar_events", "Get upcoming calendar events"),
+            self._create_child_tool("analyze_grade_trends", "Analyze grade trends"),
+            self._create_child_tool("get_semester_grades_summary", "Get semester grades summary"),
+            self._create_child_tool("get_teacher_subject_mapping", "Get teacher to subject mapping"),
+            self._create_child_tool("analyze_urgent_matters", "Analyze urgent matters"),
+            self._create_child_tool("get_messages_summary", "Get messages with content"),
+            self._create_child_tool("get_data_summary", "Get data summary", {
+                "data_type": {"type": "string", "description": "Type of data to summarize"}
+            }),
+            self._create_child_tool("get_memory", "Get stored memory for a child"),
+            self._create_child_tool("get_homework_summary", "Get homework summary"),
+            self._create_child_tool("get_remarks_summary", "Get remarks summary"),
+            self._create_child_tool("get_grade_details_by_date", "Get grade details by date range", {
+                "date_from": {"type": "string", "description": "Start date (YYYY-MM-DD)"},
+                "date_to": {"type": "string", "description": "End date (YYYY-MM-DD)"},
+                "include_semester_grades": {"type": "boolean", "description": "Include semester grades", "default": True}
+            }),
+            self._create_child_tool("get_recent_activity_delta", "Get recent activity delta", {
+                "since_date": {"type": "string", "description": "Date since when to check activity (YYYY-MM-DD)"}
+            }),
+            Tool(
+                name="list_children",
+                description="List all configured children",
+                inputSchema={"type": "object", "properties": {}, "required": []}
+            ),
+            Tool(
+                name="generate_pdf_report",
+                description="Generate PDF report",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "content": {"type": "string", "description": "Report content"},
+                        "output_path": {"type": "string", "description": "Output file path"}
+                    },
+                    "required": ["content", "output_path"]
+                }
+            )
+        ]
         return [
             Tool(
                 name="scrape_librus",
