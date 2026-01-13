@@ -249,10 +249,34 @@ class LibrusMcpServer:
             ),
         ]
     
+    def _handle_simple_tool(self, use_case, arguments):
+        """Generic handler for simple tools - eliminates duplication"""
+        result = use_case.execute(**arguments)
+        return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
+    
     async def _handle_tool(self, name: str, arguments: dict) -> List[TextContent]:
-        if name == "scrape_librus":
+        """Handle tool calls with generic patterns"""
+        # Map tools to their use cases - eliminates massive duplication
+        simple_tools = {
+            "get_grades_summary": self.get_grades,
+            "get_calendar_events": self.get_calendar,
+            "analyze_grade_trends": self.analyze_grades,
+            "get_semester_grades_summary": self.get_semester_grades,
+            "get_grade_details_by_date": self.get_grade_details,
+            "get_teacher_subject_mapping": self.get_teacher_mapping,
+            "analyze_urgent_matters": self.analyze_urgent,
+            "get_recent_activity_delta": self.get_activity_delta,
+            "get_messages_summary": self.get_messages_content,
+            "get_data_summary": self.get_data_summary
+        }
+        
+        if name in simple_tools:
+            return self._handle_simple_tool(simple_tools[name], arguments)
+        
+        # Special cases that need custom handling
+        elif name == "scrape_librus":
             result = await self.scrape_child.execute(
-                arguments["child_name"],
+                arguments["child_name"], 
                 arguments.get("force_full", False)
             )
             if result.get("status") == "session_expired":
@@ -265,25 +289,9 @@ class LibrusMcpServer:
                 return [TextContent(type="text", text=result["message"])]
             return [TextContent(type="text", text=f"❌ {result['message']}")]
         
-        elif name == "get_grades_summary":
-            result = self.get_grades.execute(arguments["child_name"])
-            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
-        
-        elif name == "get_calendar_events":
-            result = self.get_calendar.execute(arguments["child_name"])
-            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
-        
-        elif name == "get_homework_summary":
-            result = self._get_data_summary(arguments["child_name"], "homework")
-            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
-        
-        elif name == "get_messages_summary":
-            result = self._get_messages_with_content(arguments["child_name"])
-            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
-        
-        elif name == "get_remarks_summary":
-            result = self._get_data_summary(arguments["child_name"], "remarks")
-            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
+        elif name == "list_children":
+            result = self.list_children_uc.execute()
+            return [TextContent(type="text", text=result)]
         
         elif name == "get_memory":
             child = self.config.get_child(arguments["child_name"])
@@ -292,52 +300,9 @@ class LibrusMcpServer:
             memory = self.storage.load_memory(child.name)
             return [TextContent(type="text", text=json.dumps(memory, ensure_ascii=False, indent=2))]
         
-        elif name == "analyze_grade_trends":
-            result = self.analyze_grades.execute(arguments["child_name"])
-            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
-        
-        elif name == "list_children":
-            result = self.list_children_uc.execute()
-            return [TextContent(type="text", text=result)]
-        
-        elif name == "generate_pdf_report":
-            result = self._generate_pdf_report(arguments["content"], arguments["output_path"])
-            return [TextContent(type="text", text=result)]
-        
-        elif name == "get_grade_details_by_date":
-            result = self._get_grade_details_by_date(
-                arguments["child_name"],
-                arguments["date_from"],
-                arguments["date_to"],
-                arguments.get("include_semester_grades", True)
-            )
-            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
-        
-        elif name == "get_teacher_subject_mapping":
-            result = self._get_teacher_subject_mapping(arguments["child_name"])
-            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
-        
-        elif name == "get_semester_grades_summary":
-            result = self._get_semester_grades_summary(
-                arguments["child_name"],
-                arguments.get("semester", 1),
-                arguments.get("year")
-            )
-            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
-        
-        elif name == "get_recent_activity_delta":
-            result = self._get_recent_activity_delta(
-                arguments["child_name"],
-                arguments["since_date"]
-            )
-            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
-        
-        elif name == "analyze_urgent_matters":
-            result = self._analyze_urgent_matters(arguments["child_name"])
-            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
-        
-        return [TextContent(type="text", text=f"Unknown tool: {name}")]
-    
+        else:
+            return [TextContent(type="text", text=f"Unknown tool: {name}")]
+
     def _generate_pdf_report(self, content: str, output_path: str) -> str:
         """Generate PDF from markdown content"""
         return self.generate_pdf.execute(content, output_path)    
