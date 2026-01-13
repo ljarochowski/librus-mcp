@@ -17,30 +17,32 @@ class GradeValue:
     def raw(self) -> str:
         return self._value
     
-    @property
-    def numeric(self) -> Optional[float]:
-        g = self._value
+    @staticmethod
+    def _validate_grade_range(val: float) -> bool:
+        """Validate Polish grade range (1-6)"""
+        return 1 <= val <= 6
+    
+    @staticmethod
+    def _parse_grade_value(g: str) -> Optional[float]:
+        """Parse grade string to numeric value"""
         if g.isdigit():
             val = float(g)
-            # Polish grades are 1-6, 0 is invalid
-            if val < 1 or val > 6:
-                return None
-            return val
+            return val if GradeValue._validate_grade_range(val) else None
         if g.endswith('+'):
             base = g[:-1]
             if base.isdigit():
                 val = float(base)
-                if val < 1 or val > 6:
-                    return None
-                return val + 0.5
+                return val + 0.5 if GradeValue._validate_grade_range(val) else None
         if g.endswith('-'):
             base = g[:-1]
             if base.isdigit():
                 val = float(base)
-                if val < 1 or val > 6:
-                    return None
-                return val - 0.25
+                return val - 0.25 if GradeValue._validate_grade_range(val) else None
         return None
+    
+    @property
+    def numeric(self) -> Optional[float]:
+        return self._parse_grade_value(self._value)
     
     def __str__(self) -> str:
         return self._value

@@ -1,9 +1,9 @@
 """Clean application layer - use cases with proper orchestration only"""
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple, List
 
 from ..ports import IBrowserPort, IStoragePort, IConfigPort
-from ..domain.models import ScrapeResult, Grade
+from ..domain.models import ScrapeResult, Grade, Child
 from ..domain.services import (
     GradeAnalyzer, HomeworkTracker, CalendarAnalyzer, ChildReportGenerator, 
     GradeHistoryService, SessionService, ScrapeResultService, GradeDataService,
@@ -117,20 +117,30 @@ class ScrapeChildUseCase(BaseUseCase):
         self.storage.save_memory(child_name, memory)
 
 
-class AnalyzeGradesUseCase(BaseUseCase):
-    """Use case: Analyze grades and trends - CLEAN VERSION"""
+class GradeAnalysisUseCase(BaseUseCase):
+    """Base class for grade-related use cases"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
         super().__init__(storage, config)
         self.grade_data_service = GradeDataService()
-
-    def execute(self, child_name: str) -> Dict:
-        child, data = self._get_child_and_data(child_name, months=2)
+        self.response_formatting_service = ResponseFormattingService()
+    
+    def _get_grades_for_analysis(self, child_name: str, months: int = 2) -> Tuple[Optional[Child], List[Grade], Optional[Dict]]:
+        """Get child and convert raw data to grades, return error if any"""
+        child, data = self._get_child_and_data(child_name, months)
         if child is None:
-            return data  # Error response
+            return None, [], data  # data contains error message
+        return child, self.data_extraction_service.convert_raw_to_grades(data), None
+
+
+class AnalyzeGradesUseCase(GradeAnalysisUseCase):
+    """Use case: Analyze grades and trends - CLEAN VERSION"""
+    
+    def execute(self, child_name: str) -> Dict:
+        child, all_grades, error = self._get_grades_for_analysis(child_name, months=2)
+        if child is None:
+            return error
         
-        # Application layer converts raw data to domain objects
-        all_grades = self.data_extraction_service.convert_raw_to_grades(data)
         analysis = self.grade_data_service.analyze_grades_by_subject(all_grades)
         
         return {
@@ -141,20 +151,14 @@ class AnalyzeGradesUseCase(BaseUseCase):
         }
 
 
-class GetGradesSummaryUseCase(BaseUseCase):
+class GetGradesSummaryUseCase(GradeAnalysisUseCase):
     """Use case: Get grades summary - CLEAN VERSION"""
     
-    def __init__(self, storage: IStoragePort, config: IConfigPort):
-        super().__init__(storage, config)
-        self.grade_data_service = GradeDataService()
-
     def execute(self, child_name: str) -> Dict:
-        child, data = self._get_child_and_data(child_name, months=2)
+        child, all_grades, error = self._get_grades_for_analysis(child_name, months=2)
         if child is None:
-            return data  # Error response
+            return error
         
-        # Application layer converts raw data to domain objects
-        all_grades = self.data_extraction_service.convert_raw_to_grades(data)
         separated = self.grade_data_service.separate_current_and_semester_grades(all_grades)
         
         return {
@@ -165,21 +169,14 @@ class GetGradesSummaryUseCase(BaseUseCase):
         }
 
 
-class GetSemesterGradesSummaryUseCase(BaseUseCase):
+class GetSemesterGradesSummaryUseCase(GradeAnalysisUseCase):
     """Use case: Get semester grades with deduplication - CLEAN VERSION"""
     
-    def __init__(self, storage: IStoragePort, config: IConfigPort):
-        super().__init__(storage, config)
-        self.grade_data_service = GradeDataService()
-        self.response_formatting_service = ResponseFormattingService()
-
     def execute(self, child_name: str, semester: int = 1, year: str = None) -> Dict:
-        child, data = self._get_child_and_data(child_name, months=12)
+        child, all_grades, error = self._get_grades_for_analysis(child_name, months=12)
         if child is None:
-            return data  # Error response
+            return error
         
-        # Application layer converts raw data to domain objects
-        all_grades = self.data_extraction_service.convert_raw_to_grades(data)
         deduplicated_grades = self.grade_data_service.analyzer.deduplicate_semester_grades(all_grades)
         
         return self.response_formatting_service.format_semester_grades_response(
@@ -187,20 +184,14 @@ class GetSemesterGradesSummaryUseCase(BaseUseCase):
         )
 
 
-class GetGradeDetailsByDateUseCase(BaseUseCase):
+class GetGradeDetailsByDateUseCase(GradeAnalysisUseCase):
     """Use case: Get grades by date range - CLEAN VERSION"""
     
-    def __init__(self, storage: IStoragePort, config: IConfigPort):
-        super().__init__(storage, config)
-        self.grade_data_service = GradeDataService()
-        self.data_extraction_service = DataExtractionService()
-    
     def execute(self, child_name: str, date_from: str, date_to: str, include_semester: bool) -> Dict:
-        child, data = self._get_child_and_data(child_name, months=6)
+        child, all_grades, error = self._get_grades_for_analysis(child_name, months=6)
         if child is None:
-            return data  # Error response
-        # Application layer converts raw data to domain objects
-        all_grades = self.data_extraction_service.convert_raw_to_grades(data)
+            return error
+        
         filtered_grades = self.grade_data_service.filter_grades_by_date(all_grades, date_from, date_to, include_semester)
         
         return {
