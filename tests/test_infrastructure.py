@@ -334,7 +334,7 @@ class TestMcpToolHandlers:
     @pytest.mark.asyncio
     async def test_grade_details_handler(self, server):
         """Test grade details handler"""
-        with patch.object(server, '_get_grade_details_by_date', return_value={"test": "data"}):
+        with patch.object(server.get_grade_details, 'execute', return_value={"test": "data"}):
             result = await server._handle_tool("get_grade_details_by_date", {
                 "child_name": "TestChild",
                 "date_from": "2026-01-01",
@@ -346,7 +346,7 @@ class TestMcpToolHandlers:
     @pytest.mark.asyncio
     async def test_teacher_mapping_handler(self, server):
         """Test teacher mapping handler"""
-        with patch.object(server, '_get_teacher_subject_mapping', return_value={"mapping": "data"}):
+        with patch.object(server.get_teacher_mapping, 'execute', return_value={"mapping": "data"}):
             result = await server._handle_tool("get_teacher_subject_mapping", {
                 "child_name": "TestChild"
             })
@@ -356,7 +356,7 @@ class TestMcpToolHandlers:
     @pytest.mark.asyncio
     async def test_semester_grades_handler(self, server):
         """Test semester grades handler"""
-        with patch.object(server, '_get_semester_grades_summary', return_value={"semester": "data"}):
+        with patch.object(server.get_semester_grades, 'execute', return_value={"semester": "data"}):
             result = await server._handle_tool("get_semester_grades_summary", {
                 "child_name": "TestChild"
             })
@@ -366,7 +366,7 @@ class TestMcpToolHandlers:
     @pytest.mark.asyncio
     async def test_activity_delta_handler(self, server):
         """Test activity delta handler"""
-        with patch.object(server, '_get_recent_activity_delta', return_value={"activity": "data"}):
+        with patch.object(server.get_activity_delta, 'execute', return_value={"activity": "data"}):
             result = await server._handle_tool("get_recent_activity_delta", {
                 "child_name": "TestChild",
                 "since_date": "2026-01-01"
@@ -377,7 +377,7 @@ class TestMcpToolHandlers:
     @pytest.mark.asyncio
     async def test_urgent_matters_handler(self, server):
         """Test urgent matters handler"""
-        with patch.object(server, '_analyze_urgent_matters', return_value={"urgent": "data"}):
+        with patch.object(server.analyze_urgent, 'execute', return_value={"urgent": "data"}):
             result = await server._handle_tool("analyze_urgent_matters", {
                 "child_name": "TestChild"
             })
@@ -387,7 +387,7 @@ class TestMcpToolHandlers:
     @pytest.mark.asyncio
     async def test_enhanced_messages_handler(self, server):
         """Test enhanced messages handler"""
-        with patch.object(server, '_get_messages_with_content', return_value={"messages": []}):
+        with patch.object(server.get_messages_content, 'execute', return_value={"messages": []}):
             result = await server._handle_tool("get_messages_summary", {
                 "child_name": "TestChild"
             })
