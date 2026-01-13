@@ -33,18 +33,6 @@ class BaseUseCase:
             return None, {"error": f"No data found for {child.name}"}
         
         return child, data
-    
-    def _grade_to_dict(self, grade: Grade) -> Dict:
-        """Convert Grade object to dictionary"""
-        return {
-            "subject": grade.subject,
-            "grade": grade.grade,
-            "date": grade.date,
-            "category": grade.category,
-            "weight": grade.weight,
-            "teacher": grade.teacher,
-            "comment": grade.comment
-        }
 
 
 class ScrapeChildUseCase(BaseUseCase):
@@ -131,6 +119,19 @@ class GradeAnalysisUseCase(BaseUseCase):
         if child is None:
             return None, [], data  # data contains error message
         return child, self.data_extraction_service.convert_raw_to_grades(data), None
+    
+    def _build_grade_response(self, grades: List[Grade], **extra_fields) -> Dict:
+        """Build standard grade response with optional extra fields"""
+        response = {
+            "total_grades": len(grades),
+            "grades": [self._grade_to_dict(g) for g in grades]
+        }
+        response.update(extra_fields)
+        return response
+    
+    def _grade_to_dict(self, grade: Grade) -> Dict:
+        """Convert Grade object to dictionary"""
+        return self.response_formatting_service.grade_to_dict(grade)
 
 
 class AnalyzeGradesUseCase(GradeAnalysisUseCase):
@@ -143,12 +144,11 @@ class AnalyzeGradesUseCase(GradeAnalysisUseCase):
         
         analysis = self.grade_data_service.analyze_grades_by_subject(all_grades)
         
-        return {
-            "total_grades": len(all_grades),
-            "overall_average": self.grade_data_service.analyzer.calculate_average(all_grades),
-            "at_risk": self.grade_data_service.analyzer.get_subjects_at_risk(all_grades),
-            "by_subject": analysis
-        }
+        return self._build_grade_response(all_grades,
+            overall_average=self.grade_data_service.analyzer.calculate_average(all_grades),
+            at_risk=self.grade_data_service.analyzer.get_subjects_at_risk(all_grades),
+            by_subject=analysis
+        )
 
 
 class GetGradesSummaryUseCase(GradeAnalysisUseCase):

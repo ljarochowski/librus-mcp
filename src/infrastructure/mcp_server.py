@@ -2,7 +2,7 @@
 import asyncio
 import json
 from pathlib import Path
-from typing import List
+from typing import List, Dict
 
 from mcp.server import Server
 from mcp.types import Tool, TextContent
@@ -170,15 +170,15 @@ class LibrusMcpServer:
                 arguments["date_to"],
                 arguments.get("include_semester_grades", True)
             )
-            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
+            return self._format_json_response(result)
         
         elif name == "get_homework_summary":
             result = self._get_data_summary(arguments["child_name"], "homework")
-            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
+            return self._format_json_response(result)
         
         elif name == "get_remarks_summary":
             result = self._get_data_summary(arguments["child_name"], "remarks")
-            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
+            return self._format_json_response(result)
         
         elif name == "generate_pdf_report":
             result = self._generate_pdf_report(arguments["content"], arguments["output_path"])
@@ -213,6 +213,10 @@ class LibrusMcpServer:
         
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
+    
+    def _format_json_response(self, result: Dict) -> List[TextContent]:
+        """Format result as JSON response"""
+        return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, indent=2))]
 
     def _generate_pdf_report(self, content: str, output_path: str) -> str:
         """Generate PDF from markdown content"""

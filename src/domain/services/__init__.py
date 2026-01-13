@@ -340,19 +340,21 @@ class CalendarDataService:
 class ResponseFormattingService:
     """Handles response formatting and data presentation"""
     
+    def grade_to_dict(self, grade: Grade) -> Dict:
+        """Convert Grade object to dictionary"""
+        return {
+            "subject": grade.subject,
+            "grade": grade.grade,
+            "date": grade.date,
+            "category": grade.category,
+            "weight": grade.weight,
+            "teacher": grade.teacher,
+            "comment": grade.comment
+        }
+    
     def format_semester_grades_response(self, deduplicated_grades: List[Grade], child_name: str, semester: int, year: str) -> Dict:
         """Format semester grades for response"""
-        grades_dict = []
-        for grade in deduplicated_grades:
-            grades_dict.append({
-                "subject": grade.subject,
-                "grade": grade.grade,
-                "date": grade.date,
-                "category": grade.category,
-                "weight": grade.weight,
-                "teacher": grade.teacher,
-                "comment": grade.comment
-            })
+        grades_dict = [self.grade_to_dict(grade) for grade in deduplicated_grades]
         
         grades_dict.sort(key=lambda x: x['subject'])
         unique_subjects = len(set(g.subject for g in deduplicated_grades))
