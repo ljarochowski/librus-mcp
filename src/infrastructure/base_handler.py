@@ -19,13 +19,17 @@ class BaseMcpHandler:
         error_result = {"error": f"Error in {tool_name}: {str(error)}"}
         return self._format_response(error_result, tool_name)
     
-    def handle_tool(self, tool_name: str, arguments: Dict[str, Any]) -> List[TextContent]:
-        """Generic MCP tool handler pattern"""
+    def _execute_and_handle(self, tool_name: str, arguments: Dict[str, Any], execute_func) -> List[TextContent]:
+        """Common execution pattern for sync and async handlers"""
         try:
-            result = self.use_case.execute(**arguments)
+            result = execute_func(**arguments)
             return self._format_response(result, tool_name)
         except Exception as e:
             return self._handle_error(e, tool_name)
+    
+    def handle_tool(self, tool_name: str, arguments: Dict[str, Any]) -> List[TextContent]:
+        """Generic MCP tool handler pattern"""
+        return self._execute_and_handle(tool_name, arguments, self.use_case.execute)
 
 
 class AsyncMcpHandler(BaseMcpHandler):
@@ -33,8 +37,6 @@ class AsyncMcpHandler(BaseMcpHandler):
     
     async def handle_tool(self, tool_name: str, arguments: Dict[str, Any]) -> List[TextContent]:
         """Generic async MCP tool handler pattern"""
-        try:
-            result = await self.use_case.execute(**arguments)
-            return self._format_response(result, tool_name)
-        except Exception as e:
-            return self._handle_error(e, tool_name)
+        async def async_execute(**args):
+            return await self.use_case.execute(**args)
+        return self._execute_and_handle(tool_name, arguments, async_execute)

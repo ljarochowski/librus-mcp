@@ -205,63 +205,84 @@ class GetGradeDetailsByDateUseCase(GradeAnalysisUseCase):
         }
 
 
-class GetTeacherSubjectMappingUseCase(BaseUseCase):
+class DataAnalysisUseCase(BaseUseCase):
+    """Base class for use cases that need data extraction and analysis"""
+    
+    def __init__(self, storage: IStoragePort, config: IConfigPort):
+        super().__init__(storage, config)
+        self.data_extraction_service = DataExtractionService()
+    
+    def _execute_with_data(self, child_name: str, months: int, analysis_func) -> Dict:
+        """Common pattern: get data, handle errors, run analysis"""
+        child, data = self._get_child_and_data(child_name, months)
+        if child is None:
+            return data  # Error response
+        return analysis_func(child, data)
+
+
+class GetTeacherSubjectMappingUseCase(DataAnalysisUseCase):
     """Use case: Get teacher to subject mapping - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
         super().__init__(storage, config)
         self.teacher_mapping_service = TeacherMappingService()
-        self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str) -> Dict:
-        child, data = self._get_child_and_data(child_name, months=6)
-        if child is None:
-            return data  # Error response
-        # Application layer converts raw data to domain objects
-        all_grades = self.data_extraction_service.convert_raw_to_grades(data)
-        teacher_subject = self.teacher_mapping_service.build_teacher_subject_mapping(all_grades)
-        
-        return {
-            "child_name": child.name,
-            "teacher_subject_mapping": teacher_subject,
-            "total_mappings": len(teacher_subject)
-        }
+        def analyze(child, data):
+            all_grades = self.data_extraction_service.convert_raw_to_grades(data)
+            teacher_subject = self.teacher_mapping_service.build_teacher_subject_mapping(all_grades)
+            return {
+                "child_name": child.name,
+                "teacher_subject_mapping": teacher_subject,
+                "total_mappings": len(teacher_subject)
+            }
+        return self._execute_with_data(child_name, 6, analyze)
 
 
-class AnalyzeUrgentMattersUseCase(BaseUseCase):
+class AnalyzeUrgentMattersUseCase(DataAnalysisUseCase):
     """Use case: Analyze urgent matters - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
         super().__init__(storage, config)
         self.urgent_matters_service = UrgentMattersService()
-        self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str) -> Dict:
-        child, data = self._get_child_and_data(child_name, months=1)
-        if child is None:
-            return data  # Error response
-        # Application layer converts raw data to domain objects
-        homework = self.data_extraction_service.convert_raw_to_homework(data)
-        messages = self.data_extraction_service.convert_raw_to_messages(data)
-        calendar = self.data_extraction_service.convert_raw_to_calendar(data)
-        analysis = self.urgent_matters_service.analyze_urgent_matters(homework, messages, calendar)
-        
-        return {
-            "child_name": child.name,
-            **analysis
-        }
+        def analyze(child, data):
+            homework = self.data_extraction_service.convert_raw_to_homework(data)
+            messages = self.data_extraction_service.convert_raw_to_messages(data)
+            calendar = self.data_extraction_service.convert_raw_to_calendar(data)
+            analysis = self.urgent_matters_service.analyze_urgent_matters(homework, messages, calendar)
+            return {
+                "child_name": child.name,
+                **analysis
+            }
+        return self._execute_with_data(child_name, 1, analyze)
 
 
-class GetRecentActivityDeltaUseCase(BaseUseCase):
+class GetRecentActivityDeltaUseCase(DataAnalysisUseCase):
     """Use case: Get recent activity delta - CLEAN VERSION"""
     
     def __init__(self, storage: IStoragePort, config: IConfigPort):
         super().__init__(storage, config)
         self.activity_delta_service = ActivityDeltaService()
-        self.data_extraction_service = DataExtractionService()
 
     def execute(self, child_name: str, since_date: str) -> Dict:
-        child, data = self._get_child_and_data(child_name, months=2)
+        def analyze(child, data):
+            grades = self.data_extraction_service.convert_raw_to_grades(data)
+            homework = self.data_extraction_service.convert_raw_to_homework(data)
+            messages = self.data_extraction_service.convert_raw_to_messages(data)
+            calendar = self.data_extraction_service.convert_raw_to_calendar(data)
+            activity = self.activity_delta_service.get_activity_since_date(grades, homework, messages, calendar, since_date)
+            return {
+                "child_name": child.name,
+                "since_date": since_date,
+                "new_grades": len(activity["new_grades"]),
+                "new_homework": len(activity["new_homework"]),
+                "new_messages": len(activity["new_messages"]),
+                "upcoming_tests": len(activity["upcoming_tests"]),
+                "details": activity
+            }
+        return self._execute_with_data(child_name, 2, analyze)
         if child is None:
             return data  # Error response
         # Application layer converts raw data to domain objects
